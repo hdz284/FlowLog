@@ -1,0 +1,13 @@
+.in 
+.decl arc(src: number, dest: number) 
+# .decl deref(src: number, via: number, dest: number) 
+# .decl vpt(src: number, via: number, dest: number) 
+
+.printsize 
+.decl tc(src: number, dest: number) 
+
+.rule
+# tc(z, x) :- deref(x, _, x), deref(x, z, 200), !arc(x, _).
+# tc(z, w) :- deref(w, u, u), vpt(u, u, z).
+# vpt(z, z, x) :- deref(3, z, x), vpt(x, u, 4).
+tc(x, z) :- arc(x, 4), arc(x, y), arc(y, z).

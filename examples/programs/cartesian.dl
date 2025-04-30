@@ -1,0 +1,10 @@
+.in 
+.decl ne(src: number) 
+
+.printsize 
+.decl tc(src: number, dest: number, v: number) 
+.decl reach(src: number) 
+
+.rule
+tc(x, y, z) :- ne(x), ne(y), ne(z), x != y, x != z.
+# reach(x) :- ne(x).

@@ -1,0 +1,27 @@
+.in 
+.decl _arc(src: number, dest: number) 
+.input arc.csv
+
+.printsize 
+.decl tc(src: number, dest: number) 
+
+.rule
+# tc(x, y) :- _arc("ss", y).
+tc(x + z) :- arc(x, y), arc(y, z).
+
+# tc(z, y) :- arc(z, x), tc(x, y).
+å
+# tc(x, y) :- arc(x, y), arc(y, z), !ne(x).
+
+#ne(x) :- arc(x, x).
+#tc(y, z) :- arc(x, y), arc(x, z), arc(x, w).
+#tc(x, y) :- arc(x, y).
+#tc(x, y) :- arc(x, y), tc(y, z).
+#tc1(x, y) :- arc(x, y), tc1(y, z).
+#reach(x) :- ne(x).
+#reach(x) :- tc(x, _).
+#reach(x) :- arc(x, _).
+
+
+
+

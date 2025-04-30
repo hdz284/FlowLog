@@ -1,0 +1,299 @@
+.in
+# -------------------- edbs ------------------- 
+.decl arch_memory_access(AccessType:number,EA:number,DirectReg:number,BaseReg:number,IndexReg:number,Offset:number)
+.input arch_memory_access_truncate.csv # cut -f1-2,5-7,9 arch_memory_access.csv > arch_memory_access_truncate.csv
+
+.decl arch_reg_reg_arithmetic_operation(EA:number,Dst:number,Src1:number,Src2:number,Mult:number,Offset:number)
+.input arch_reg_reg_arithmetic_operation.csv
+
+.decl arch_return_reg(Reg:number)
+.input arch_return_reg.csv
+
+.decl block_next(Block:number,BlockEnd:number,NextBlock:number)
+.input block_next.csv
+
+.decl block_last_instruction(Block:number,EA:number)
+.input block_last_instruction.csv
+
+.decl code_in_block(EA:number,Block:number)
+.input code_in_block.csv
+
+.decl direct_call(EA:number,Dest:number)
+.input direct_call.csv
+
+.decl may_fallthrough(o:number,d:number)
+.input may_fallthrough.csv
+
+.decl reg_def_use_block_last_def(EA:number,EA_def:number,Var:number)
+.input reg_def_use_block_last_def.csv
+
+.decl reg_def_use_defined_in_block(Block:number,Var:number)
+.input reg_def_use_defined_in_block.csv
+
+.decl reg_def_use_flow_def(EA:number,Var:number,EA_next:number,Value:number)
+.input reg_def_use_flow_def.csv
+
+.decl reg_def_use_live_var_def(Block:number,VarIdentity:number,LiveVar:number,EA_def:number)
+.input reg_def_use_live_var_def.csv
+
+.decl reg_def_use_ref_in_block(Block:number,Var:number)
+.input reg_def_use_ref_in_block.csv
+
+.decl reg_def_use_return_block_end(Callee:number,CalleeEnd:number,Block:number,BlockEnd:number)
+.input reg_def_use_return_block_end.csv
+
+.decl reg_def_use_used(EA:number,Var:number,Index:number)
+.input reg_def_use_used.csv
+
+.decl reg_def_use_used_in_block(Block:number,EA_used:number,Var:number,Index:number)
+.input reg_def_use_used_in_block.csv
+
+.decl reg_used_for(EA:number,Reg:number,Type:number)
+.input reg_used_for.csv
+
+.decl relative_jump_table_entry_candidate(EA:number,TableStart:number,Size:number,Reference:number,Dest:number,Scale:number,Offset:number)
+.input relative_jump_table_entry_candidate.csv
+
+.decl stack_def_use_def(EA:number,VarReg:number,VarPos:number)
+.input stack_def_use_def.csv
+
+.decl stack_def_use_defined_in_block(Block:number,VarReg:number,VarPos:number)
+.input stack_def_use_defined_in_block.csv
+
+.decl stack_def_use_live_var_def(Block:number,VarIdentityReg:number,VarIdentityPos:number,LiveVarReg:number,LiveVarPos:number,EA_def:number)
+.input stack_def_use_live_var_def.csv
+
+.decl stack_def_use_ref_in_block(Block:number,VarReg:number,VarPos:number)
+.input stack_def_use_ref_in_block.csv
+
+.decl stack_def_use_used_in_block(Block:number,EA_used:number,VarReg:number,VarPos:number,Index:number)
+.input stack_def_use_used_in_block.csv
+
+.decl stack_def_use_used(EA:number,VarReg:number,VarPos:number,Index:number)
+.input stack_def_use_used.csv
+
+
+# -------------------- fake edbs ------------------- */
+# .decl stack_def_use_live_var_used_in_block(Block:number,EA:number,LiveVar:stack_var,UsedVar:stack_var,EA_used:number,Index:number,Moves:number)
+# .input stack_def_use_live_var_used_in_block.csv
+
+.decl stack_def_use_live_var_used(Block:number,LiveVarReg:number,LiveVarPos:number,UsedVarReg:number,UsedVarPos:number,EA_used:number,Index:number,Moves:number) # overridable
+.input stack_def_use_live_var_used.csv
+
+.decl jump_table_start(EA_jump:number,Size:number,TableStart:number,TableRef:number,Scale:number)
+.input jump_table_start.csv
+
+.decl def_used_for_address_0(EA_def:number,Reg:number,Type:number)
+.input def_used_for_address.csv
+
+.decl stack_def_use_block_last_def(EA:number,EA_def:number,VarReg:number,VarPos:number)
+.input stack_def_use_block_last_def.csv
+
+# .decl stack_def_use_def_used_0(EA_def:number,VarDefReg:number,VarDefPos:number,EA_used:number,VarUsedReg:number,VarUsedPos:number,Index:number)
+# .input stack_def_use_def_used.csv
+
+# -------------------- idbs ------------------- 
+.printsize
+.decl stack_def_use_def_used(EA_def:number,VarDefReg:number,VarDefPos:number,EA_used:number,VarUsedReg:number,VarUsedPos:number)
+.decl reg_def_use_return_val_used(EA_call:number,Callee:number,Reg:number,EA_used:number,Index_used:number)
+.decl reg_def_use_live_var_used(Block:number,LiveVar:number,EA_used:number,Index:number) # overridable
+
+.decl jump_table_target(EA:number,Dest:number)
+.decl reg_def_use_def_used(EA_def:number,Var:number,EA_used:number,Index_used:number)
+.decl reg_def_use_live_var_at_prior_used(EA_used:number,BlockUsed:number,Var:number)
+.decl reg_def_use_live_var_at_block_end(Block:number,BlockUsed:number,Var:number)
+.decl reg_reg_arithmetic_operation_defs(EA:number,Reg_def:number,EA_def1:number,Reg1:number,EA_def2:number,Reg2:number,Mult:number,Offset:number)
+.decl def_used_for_address(EA_def:number,Reg:number,Type:number)
+.decl stack_def_use_live_var_at_block_end(Block:number,BlockUsed:number,VarReg:number,VarPos:number)
+.decl stack_def_use_live_var_at_prior_used(EA_used:number,BlockUsed:number,VarReg:number,VarPos:number)
+
+
+
+.rule
+# -------------------- rules ------------------- 
+##### block_next (moved to fake edb)
+# block_next(Block,EA,Block2) :- 
+#    block_last_instruction(Block,EA),
+#    may_fallthrough(EA,Block2),
+#    !no_return_call_propagated(EA),
+#    !inter_procedural_edge(EA,Block2),
+#    block(Block2).
+# block_next(Block,EA,Block2) :- 
+#    lsda_callsite_addresses(Beg,End,Block2),
+#    block_last_instruction(Block,EA),
+#    EA >= Beg,
+#    EA < End,
+#    block(Block2).
+# block_next(Block,EA,EA_next) :- 
+#    block_last_instruction(Block,EA),
+#    direct_jump(EA,EA_next),
+#    !inter_procedural_edge(EA,EA_next).
+# block_next(Block,EA,Dest) :- 
+#    block_last_instruction(Block,EA),
+#    jump_table_target(EA,Dest).
+##### end of block_next (4/4)
+
+
+##### jump_table_target
+jump_table_target(EA,Dest) :- 
+   jump_table_start(EA,Size,TableStart,_,_),  # fake edb
+   relative_jump_table_entry_candidate(_,TableStart,Size,_,Dest,_,_).
+##### end of jump_table_target (1/1)
+
+
+##### reg_def_use_def_used
+reg_def_use_def_used(EA_def,Var,EA_used,Index) :- 
+   reg_def_use_used(EA_used,Var,Index),
+   reg_def_use_block_last_def(EA_used,EA_def,Var).
+
+reg_def_use_def_used(EA_def,VarIdentity,EA_used,Index) :- 
+   reg_def_use_live_var_at_block_end(Block,BlockUsed,Var),
+   reg_def_use_live_var_def(Block,VarIdentity,Var,EA_def),
+   reg_def_use_live_var_used(BlockUsed,Var,EA_used,Index).  
+# .plan 1:(3,1,2)
+
+reg_def_use_def_used(EA_def,Var,Next_EA_used,NextIndex) :- 
+   reg_def_use_live_var_at_prior_used(EA_used,NextUsedBlock,Var),
+   reg_def_use_def_used(EA_def,Var,EA_used,_),
+   reg_def_use_live_var_used(NextUsedBlock,Var,Next_EA_used,NextIndex).  
+
+reg_def_use_def_used(EA_def,Reg,EA_used,Index) :- 
+   reg_def_use_return_val_used(_,Callee,Reg,EA_used,Index),
+   reg_def_use_return_block_end(Callee,_,_,BlockEnd),
+   reg_def_use_block_last_def(BlockEnd,EA_def,Reg).
+##### end of reg_def_use_def_used (4/4)
+
+
+##### reg_def_use_return_val_used
+reg_def_use_return_val_used(EA_call,Callee,Reg,EA_used,Index_used) :- 
+   arch_return_reg(Reg),
+   reg_def_use_def_used(EA_call,Reg,EA_used,Index_used),
+   direct_call(EA_call,Callee).
+##### end of reg_def_use_return_val_used (1/1)
+
+
+##### reg_def_use_live_var_def
+reg_def_use_live_var_used(Block,Var,Var,EA_used,Index) :- 
+   reg_def_use_used_in_block(Block,EA_used,Var,Index),
+   !reg_def_use_block_last_def(EA_used,_,Var).
+reg_def_use_live_var_used(RetBlock,Reg,EA_used,Index) :- 
+   reg_def_use_return_block_end(Callee,_,RetBlock,RetBlockEnd),
+   !reg_def_use_block_last_def(RetBlockEnd,_,Reg),
+   reg_def_use_return_val_used(_,Callee,Reg,EA_used,Index).
+##### end of reg_def_use_live_var_def (1/1)
+
+
+##### reg_def_use_live_var_at_prior_used
+reg_def_use_live_var_at_prior_used(EA_used,BlockUsed,Var) :- 
+   reg_def_use_live_var_at_block_end(Block,BlockUsed,Var),
+   reg_def_use_used_in_block(Block,EA_used,Var,_),
+   !reg_def_use_defined_in_block(Block,Var).
+##### end of reg_def_use_live_var_at_prior_used (1/1)
+
+
+##### reg_def_use_live_var_at_block_end
+reg_def_use_live_var_at_block_end(PrevBlock,Block,Var) :- 
+   block_next(PrevBlock,PrevBlockEnd,Block),
+   reg_def_use_live_var_used(Block,Var,_,_),
+   !reg_def_use_flow_def(PrevBlockEnd,Var,Block,_).
+
+reg_def_use_live_var_at_block_end(PrevBlock,BlockUsed,Var) :- 
+   reg_def_use_live_var_at_block_end(Block,BlockUsed,Var),
+   !reg_def_use_ref_in_block(Block,Var),
+   block_next(PrevBlock,_,Block). 
+# .plan 1:(2,1)
+##### end of reg_def_use_live_var_at_block_end (2/2)
+
+
+##### reg_reg_arithmetic_operation_defs
+reg_reg_arithmetic_operation_defs(EA,Reg_def,EA_def1,Reg1,EA_def2,Reg2,Mult,Offset) :- 
+   def_used_for_address(EA,Reg_def,_),
+   arch_reg_reg_arithmetic_operation(EA,Reg_def,Reg1,Reg2,Mult,Offset),
+   Reg1 != Reg2,
+   reg_def_use_def_used(EA_def1,Reg1,EA,_),
+   EA != EA_def1,
+   reg_def_use_def_used(EA_def2,Reg2,EA,_),
+   EA != EA_def2.
+# .plan 1:(3,1,2,4), 2:(4,1,2,3)
+##### end of reg_reg_arithmetic_operation_defs (1/1)
+
+
+
+##### def_used_for_address
+def_used_for_address(EA,Reg,Type) :- 
+   def_used_for_address_0(EA,Reg,Type),
+   Type = 371929.
+
+# def_used_for_address(EA,Reg,"PCRelative") :- 
+#    arch_pc_relative_addr(EA,Reg,_).
+
+def_used_for_address(EA_def,Reg,Type) :- 
+   reg_def_use_def_used(EA_def,Reg,EA,_),
+   reg_used_for(EA,Reg,Type).
+
+def_used_for_address(EA_def,Reg,Type) :- 
+   def_used_for_address(EA_used,_,Type),
+   reg_def_use_def_used(EA_def,Reg,EA_used,_).
+
+def_used_for_address(EA_def,Reg1,Type) :- 
+   def_used_for_address(EALoad,Reg2,Type),
+   arch_memory_access(332573,EALoad,Reg2,RegBaseLoad,332575,StackPosLoad),
+   stack_def_use_def_used(EAStore,RegBaseStore,StackPosStore,EALoad,RegBaseLoad,StackPosLoad), # truncate the last argument, stack_def_use_def_used(EAStore,RegBaseStore,StackPosStore,EALoad,RegBaseLoad,StackPosLoad,_),
+   arch_memory_access(333071,EAStore,Reg1,RegBaseStore,332575,StackPosStore),
+   reg_def_use_def_used(EA_def,Reg1,EAStore,_).
+##### end of def_used_for_address (4/4)
+
+
+##### stack_def_use_def_used 
+stack_def_use_def_used(EA_def,Varr1,Varp1,EA_used,Varr2,Varp2) :- 
+   stack_def_use_used(EA_used,Varr1,Varp1,_),
+   stack_def_use_block_last_def(EA_used,EA_def,Varr2,Varp2),
+   Varr1 = Varr2,
+   Varp1 = Varp2.
+
+stack_def_use_def_used(EA_def,DefVarr,DefVarp,EA_used,VarUsedr,VarUsedp) :- 
+   stack_def_use_live_var_at_block_end(Block,BlockUsed,Varr,Varp),
+   stack_def_use_live_var_def(Block,DefVarr,DefVarp,Varr,Varp,EA_def),
+   stack_def_use_live_var_used(BlockUsed,Varr,Varp,VarUsedr,VarUsedp,EA_used,_,_). # fake edb
+# .plan 1:(3,1,2)
+
+stack_def_use_def_used(EA_def,DefVarr,DefVarp,EA_used,UsedVarr,UsedVarp) :- 
+#    stack_def_use_live_var_used_in_block(_,EA,DefVarr,DefVarp,UsedVarr,UsedVarp,EA_used,Index,_),  # replace by the following atom
+   stack_def_use_live_var_used(EA,DefVarr,DefVarp,UsedVarr,UsedVarp,EA_used,_,_), # fake edb
+   may_fallthrough(EA_def,EA),
+   code_in_block(EA_def,Block),
+   code_in_block(EA,Block),
+   stack_def_use_def(EA_def,DefVarr,DefVarp).
+ 
+stack_def_use_def_used(EA_def,VarDefr,VarDefp,Next_EA_used,VarUsedr,VarUsedp) :- 
+   stack_def_use_live_var_at_prior_used(EA_used,NextUsedBlock,Varr,Varp),
+   stack_def_use_def_used(EA_def,VarDefr,VarDefp,EA_used,Varr,Varp),
+   stack_def_use_live_var_used(NextUsedBlock,Varr,Varp,VarUsedr,VarUsedp,Next_EA_used,_,_). # fake edb
+##### end of stack_def_use_def_used (4/4)
+
+
+##### stack_def_use_live_var_at_block_end
+stack_def_use_live_var_at_block_end(PrevBlock,BlockUsed,inlined_BaseReg_374,inlined_StackPos_374) :- 
+   stack_def_use_live_var_at_block_end(Block,BlockUsed,inlined_BaseReg_374,inlined_StackPos_374),
+   !stack_def_use_ref_in_block(Block,inlined_BaseReg_374,inlined_StackPos_374),
+   !reg_def_use_defined_in_block(Block,inlined_BaseReg_374),
+   block_next(PrevBlock,_,Block).
+# .plan 1:(2,1)
+
+stack_def_use_live_var_at_block_end(PrevBlock,Block,Varr,Varp) :- 
+   block_next(PrevBlock,_,Block),
+   stack_def_use_live_var_used(Block,Varr,Varp,_,_,_,_,_). # fake edb
+##### end of stack_def_use_live_var_at_block_end (2/2)
+
+
+##### stack_def_use_live_var_at_prior_used
+stack_def_use_live_var_at_prior_used(EA_used,BlockUsed,inlined_BaseReg_375,inlined_StackPos_375) :- 
+   stack_def_use_live_var_at_block_end(Block,BlockUsed,inlined_BaseReg_375,inlined_StackPos_375),
+   stack_def_use_used_in_block(Block,EA_used,inlined_BaseReg_375,inlined_StackPos_375,_),
+   !reg_def_use_defined_in_block(Block,inlined_BaseReg_375),
+   !stack_def_use_defined_in_block(Block,inlined_BaseReg_375,inlined_StackPos_375).
+##### end of stack_def_use_live_var_at_prior_used (1/1)
+
+
+
+

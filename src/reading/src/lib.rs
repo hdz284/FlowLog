@@ -1,0 +1,17 @@
+pub mod reader; 
+pub mod row;
+pub mod rel;
+pub mod inspect;
+pub mod arrangements;
+pub mod session;
+
+
+use differential_dataflow::difference::Present;
+
+pub type Time = (); 
+pub type Iter = u16;
+pub type Semiring = Present; 
+
+
+
+

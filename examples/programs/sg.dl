@@ -1,0 +1,18 @@
+
+
+.in 
+.decl arc(src: number, dest: number) 
+
+.printsize 
+.decl sg(src: number, dest: number) 
+
+
+.rule
+
+# sg(x, y) :- dereference(p, x, z), dereference(p, y, z), !ne(z, z, p), z != p.
+# sgn(z, z) :- sg(x, z), sg(z, z), z == 3, z != x.
+
+sg(x, y) :- arc(a, x), arc(a, y), x != y.
+sg(x, y) :- arc(a, x), sg(a, b), arc(b, y).
+
+

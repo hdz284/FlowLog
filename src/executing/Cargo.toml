@@ -1,0 +1,34 @@
+[package]
+name = "executing"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+debugging = { path = "../debugging" }  
+parsing = { path = "../parsing" }  
+strata = { path = "../strata" }  
+catalog = { path = "../catalog" }  
+planning = { path = "../planning" }
+reading = { path = "../reading" }
+macros = { path = "../macros" }
+
+
+clap = { version = "4.5.20", features = ["derive"] }
+itertools = "0.14.0"
+
+# timely = "0.19.0"
+# differential-dataflow = "0.13.7"
+timely = "0.20.0"
+differential-dataflow = "0.14.2"
+
+# timely = "0.12.0"
+# differential-dataflow = { path = "/Users/hangdong/.cargo/registry/src/index.crates.io-6f17d22bba15001f/differential-dataflow-0.12.0" }
+# differential-dataflow = "0.13.1"
+# differential-dataflow = { path = "/users/hangdong/differential" }
+arrayvec = "0.7.6"
+mimalloc = { version = "*" }
+
+
+

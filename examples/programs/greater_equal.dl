@@ -1,0 +1,40 @@
+.in
+.decl r(R: number, P: number, E: number)
+.decl c(Y: number, Z: number, W: number)
+.decl u(R: number, Z: number, W: number)
+.decl s(R: number, P: number)
+.decl p0(X: number, Z: number)
+.decl q0(X: number, Y: number, Z: number)
+
+.printsize
+.decl puHelp(X: number, Y: number, Z: number)
+.decl p(X: number, Z: number)
+.decl q(X: number, Y: number, Z: number)
+
+.rule
+# block_next(Block,EA,Block2) :- 
+#    block_last_instruction(Block,EA),
+#    may_fallthrough(EA,Block2),
+#    !no_return_call_propagated(EA),
+#    !inter_procedural_edge(EA,Block2),
+#    block(Block2).
+# block_next(Block,EA,Block2) :- 
+#    lsda_callsite_addresses(Beg,End,Block2),
+#    block_last_instruction(Block,EA),
+#    EA % Beg = 2,
+#    EA < End,
+#    block(Block2).
+# block_next(Block,EA,EA_next) :- 
+#    block_last_instruction(Block,EA),
+#    direct_jump(EA,EA_next),
+#    !inter_procedural_edge(EA,EA_next).
+# block_next(Block,EA,Dest) :- 
+#    block_last_instruction(Block,EA),
+#    jump_table_target(EA,Dest).
+
+
+
+reg_def_use_live_var_used(RetBlock,Reg,Reg,EA_used,Index) :- 
+   reg_def_use_return_block_end(Callee,_,RetBlock,RetBlockEnd),
+   !reg_def_use_block_last_def(RetBlockEnd,_,Reg),
+   reg_def_use_return_val_used(_,Callee,Reg,EA_used,Index).

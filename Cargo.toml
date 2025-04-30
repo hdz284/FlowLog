@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "src/debugging",
+    "src/parsing", 
+    "src/strata",
+    "src/catalog",
+    "src/optimizing",
+    "src/planning",
+    "src/reading",
+    "src/executing",
+    "src/macros",
+]
+
+

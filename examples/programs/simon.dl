@@ -1,0 +1,18 @@
+.in 
+.decl AssignHeapAllocation(x: number, y: number, z: number) 
+.decl Method_DeclaringType(src: number, dest: number) 
+.decl HeapAllocation_Type(src: number, dest: number) 
+.decl ThisVar(src: number, dest: number) 
+
+.printsize 
+.decl HeapAllocationTypeAppearsInMultipleClasses(type: number)
+
+
+.rule
+HeapAllocationTypeAppearsInMultipleClasses(type) :-
+  AssignHeapAllocation(value1, x, method1),
+  Method_DeclaringType(method1, class1),
+  HeapAllocation_Type(value1, type),
+  AssignHeapAllocation(value2, y, method2),
+  Method_DeclaringType(method2, class2),
+  HeapAllocation_Type(value2, type).

@@ -1,0 +1,17 @@
+[package]
+name = "macros"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reading = { path = "../reading" }
+
+
+syn = { version = "2.0.87", features = ["full"] }
+quote = "1.0.37"
+proc-macro2 = "1.0.89"
+itertools = "0.13.0"
+
+
+[lib]
+proc-macro = true

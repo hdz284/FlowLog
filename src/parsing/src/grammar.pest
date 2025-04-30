@@ -1,0 +1,126 @@
+/** parsing grammar **/
+main_grammar = { 
+    SOI ~ 
+    (
+        (edb_decl ~ idb_decl | edb_decl | idb_decl) ~
+        rule_decl? 
+    )+
+    ~ EOI
+} 
+
+/** atoms declaration **/
+edb_decl = { ".in" ~ relation_decl+ }
+idb_decl = { ".printsize" ~ relation_decl+ }
+
+relation_decl = { ".decl" ~ relation_name ~ "(" ~ attributes_decl ~ ")" ~ in_decl? }         // e.g. assign(src: number, dest: number)
+attributes_decl = { attribute_decl ~ ("," ~ attribute_decl)* }
+attribute_decl = { attribute_name ~ ":" ~ data_type }                             // e.g. src: number 
+
+/** relation io **/
+in_decl = {  ".input" ~ in_path }
+in_path = @{ in_name ~ ("." ~ ( "facts" | "csv" | "txt" )) }
+in_name = @{ "_"? ~ ASCII_ALPHA+ ~ (ASCII_ALPHANUMERIC | "_" | "-")* }          // e.g. _Method-Modifier.facts
+
+/** rules declaration **/
+rule_decl = { (".rule")? ~ rule+ }
+rule = { head ~ ":-" ~ predicates ~ "." ~ optimize? }
+predicates = { predicate ~ ("," ~ predicate)* }                                    // e.g. same generation, x != y
+predicate = { atom | neg_atom | compare_expr } 
+
+optimize = { ".plan" | ".sip" | ".optimize" }
+
+/** atoms **/
+atom = { 
+    relation_name ~ 
+    "(" ~ 
+    atom_arg ~ 
+    ("," ~ atom_arg)* ~ 
+    ")" 
+}
+neg_atom = { "!" ~ atom }
+atom_arg = { variable | constant | placeholder }                        // constant => magic sets, placeholder => not necessary column
+
+
+/** at most aggregate per head atom, e.g. R(x, min(z)) :- R(x, y), R(z, y), x > z. **/
+head = {
+    relation_name ~ 
+    "(" ~ 
+    arithmics ~ 
+    ("," ~ arithmics )* ~                                 // we only plan to support arithmics as constant for now
+    ("," ~ aggregate)? ~
+    ")" 
+} 
+
+/** aggregate **/
+// e.g. count(x), avg(x + y), sum(x), min(x), max(x * y * z)
+aggregate = { 
+    aggregate_op ~ 
+    "(" ~ 
+    arithmics ~
+    ")" 
+} 
+
+
+/** aggregate ops **/
+aggregate_op = { "count" | "average" | "sum" | "min" | "max" } 
+
+
+/** cmpr **/
+// e.g. x + y > z + w, z != w
+compare_expr = { arithmics ~ compare_op ~ arithmics }
+
+/** cmpr ops **/
+compare_op = { 
+    equals |
+    not_equals | 
+    greater_equal_than |
+    greater_than |  
+    less_equal_than |
+    less_than 
+}
+
+
+/** arithmics **/
+// e.g. 3 + (y + z), x * y * z, x * (y * z), parentheses are needed for precedence
+// a version w/o precedence (for simplicity)
+arithmics = { factor ~ (arithmic_op ~ factor)* }
+factor = { variable | constant }
+
+
+equals = { "=" } 
+not_equals = { "!=" }
+greater_equal_than = { ">=" }
+greater_than = { ">" }
+less_equal_than = { "<=" }
+less_than = { "<" }
+
+
+/** arithmic ops **/
+arithmic_op = { plus | minus | times | divide | modulo }
+plus = { "+" }
+minus = { "-" }
+times = { "*" }
+divide = { "/" }
+modulo = { "%" }
+
+/** constants **/
+constant = { integer | string } 
+integer = @{ ("+" | "-")? ~ ASCII_DIGIT+ }
+string = { "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+
+placeholder = { "_" } 
+
+variable = { identifier }
+attribute_name = { identifier }
+relation_name = { identifier }
+identifier = @{ "_"? ~ ASCII_ALPHA+ ~ (ASCII_ALPHANUMERIC | "_")* }                 // non-examples: 1x, x-yz (_x is fine)
+
+data_type = { int_type | string_type }                                      // TODO: to be extended, say { int_type | string_type | float_type | double_type | ... }
+int_type = { "number" }
+string_type = { "string" }
+
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT    = _{ "#" ~ (!NEWLINE ~ ANY)* }                                   // any character that is not a newline, followed by any character
+
+
+

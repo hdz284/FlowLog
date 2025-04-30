@@ -1,0 +1,25 @@
+// .in
+.decl arc(x:number, y:number, l:number)
+.input arc(IO="file", filename="arc.facts", delimiter=",")
+
+.decl zero(x:number, y:number)
+.printsize zero
+.decl one(x:number, y:number)
+.printsize one
+.decl dyck(x:number, y:number)
+.printsize dyck
+
+// .rule
+zero(x, y) :- arc(x, y, 0).
+one(x, y) :- arc(x, y, 1).
+
+dyck(x, y) :- zero(x, z), zero(z, y).
+dyck(x, y) :- one(x, z), one(z, y).
+dyck(x, y) :- zero(x, z), dyck(z, w), zero(w, y).
+dyck(x, y) :- one(x, z), dyck(z, w), one(w, y).
+dyck(x, y) :- dyck(x, z), dyck(z, y).
+
+
+// souffle -o dyck-souffle ./dyck-souffle.dl -j 16
+// time ./dyck-souffle -F/users/hangdong/bzip -j 16
+// sed -e 's/\ba\b/0/g' -e 's/\bd\b/1/g' bzip.csv > arc.facts

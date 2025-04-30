@@ -1,0 +1,33 @@
+.in 
+.decl assign(src: number, dest: number)
+.decl dereference(src: number, dest: number)
+
+.printsize
+.decl valueFlow(src: number, dest: number)
+.decl valueAlias(src: number, dest: number)
+.decl memoryAlias(src: number, dest: number)
+.decl valueFlowHelp(src: number, dest: number)
+.decl memoryAliasHelp(src: number, dest: number)
+
+.rule
+valueFlow(y, x) :- assign(y, x).
+
+valueFlow(x, y) :- assign(x, z), memoryAlias(z, y).
+valueFlow(x, y) :- valueFlow(x, z), valueFlow(z, y).
+
+memoryAlias(x, w) :- dereference(y, x), valueAlias(y, z), dereference(z, w).
+valueAlias(x, y) :- valueFlow(z, x), valueFlow(z, y).
+# valueAlias(x, y) :- valueFlow(z, x), memoryAlias(z, w), valueFlow(w, y).
+
+memoryAliasHelp(z, w) :- valueFlow(z, _), memoryAlias(z, w).
+valueFlowHelp(w, y) :- memoryAliasHelp(_, w), valueFlow(w, y).
+valueAlias(x, y) :- valueFlow(z, x), valueFlowHelp(w, y), memoryAliasHelp(z, w).
+
+valueFlow(x, x) :- assign(x, y).
+valueFlow(x, x) :- assign(y, x).
+memoryAlias(x, x) :- assign(y, x).
+memoryAlias(x, x) :- assign(x, y).
+
+
+
+# ./target/release/executing -p ./examples/programs/pointsto.dl -f /Users/hangdong/Desktop/benchmarks/benchmarks/pointsto/facts -c ./examples/csvs -d $'\t'

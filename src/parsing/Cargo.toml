@@ -1,0 +1,9 @@
+[package]
+name = "parsing"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.20", features = ["derive"] }
+pest = "2.7.14"
+pest_derive = "2.7.14"

@@ -1,0 +1,14 @@
+.in
+.decl arc(y:number, x:number)
+.decl source(x:number)
+
+.printsize
+.decl is_bipartite(x:number)
+.decl zero(x:number)
+.decl one(x:number)
+
+.rule
+zero(x) :- source(x).
+one(y) :- arc(x, y), zero(x).
+zero(y) :- arc(x, y), one(x).
+is_bipartite(x) :- one(x), zero(x).
