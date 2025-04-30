@@ -48,11 +48,11 @@ cargo build --release
 </tr>
 <tr>
   <td align="center"><code>-p, --program &lt;FILE&gt;</code></td>
-  <td>Path to the Datalog program file (.dl extension)</td>
+  <td>Path to the Datalog program file (<code>.dl</code> extension)</td>
 </tr>
 <tr>
   <td align="center"><code>-f, --facts &lt;DIR&gt;</code></td>
-  <td>Path containing input facts (CSV files)</td>
+  <td>Path containing input facts</td>
 </tr>
 <tr>
   <td align="center"><code>-c, --csvs &lt;DIR&gt;</code></td>
@@ -64,7 +64,7 @@ cargo build --release
 </tr>
 <tr>
   <td align="center"><code>-w, --workers &lt;NUM&gt;</code></td>
-  <td>Number of threads (default: available cores)</td>
+  <td>Number of threads (default: single core)</td>
 </tr>
 <tr>
   <td align="center"><code>-v, --verbose</code></td>
@@ -113,8 +113,8 @@ count_paths(x, z, COUNT(y)) :- edge(x, y), edge(y, z).
 
 The `examples/` directory contains several sample Datalog programs:
 
-- `examples/programs/batik.dl`: Basic graph analysis
-- `examples/programs/`: Other example programs tested
+- `examples/programs/batik.dl`: DOOP program for batik
+- `examples/programs/`: Other sample programs tested
 
 ## Contributing
 
