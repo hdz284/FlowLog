@@ -2,6 +2,20 @@
 
 <p align="center"> <img src="flowlog.png" alt="flowlog_logo" width="250"/> </p>
 
+FlowLog is an efficient, scalable and extensible Datalog engine built atop Differential Dataflow.
+
+
+## Installation
+
+### Prerequisites
+- Rust and Cargo (latest stable version recommended)
+- Differential Dataflow (0.14.2)
+
+### Building
+```bash
+# Release build
+cargo build --release
+```
 
 ## Command Line
 
@@ -9,7 +23,7 @@
   - `./src/parsing` - the parsing crate
      
      ```bash
-     cargo build // build the parsing crate
+     cargo build # build the parsing crate
      ```
      
      run the binary (i.e., `./src/parsing/src/main.rs`) of built parsing crate
@@ -19,102 +33,92 @@
   - `./src/executing` - end to end execution
       ```bash
       cargo build --release
-      ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./examples/csvs -d $'\t' -w 64 // 64 threads execuition of batik.dl
+      # Run on 64 threads for batik.dl program
+      ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./examples/csvs -d $'\t' -w 64 
       ```
 
+## Usage
+
+### Command Options
+
+<table>
+<tr>
+  <th align="center">Option</th>
+  <th align="center">Description</th>
+</tr>
+<tr>
+  <td align="center"><code>-p, --program &lt;FILE&gt;</code></td>
+  <td>Path to the Datalog program file (.dl extension)</td>
+</tr>
+<tr>
+  <td align="center"><code>-f, --facts &lt;DIR&gt;</code></td>
+  <td>Path containing input facts (CSV files)</td>
+</tr>
+<tr>
+  <td align="center"><code>-c, --csvs &lt;DIR&gt;</code></td>
+  <td>Path for output results</td>
+</tr>
+<tr>
+  <td align="center"><code>-d, --delimiter &lt;CHAR&gt;</code></td>
+  <td>Delimiter for input files (default: <code>,</code>)</td>
+</tr>
+<tr>
+  <td align="center"><code>-w, --workers &lt;NUM&gt;</code></td>
+  <td>Number of threads (default: available cores)</td>
+</tr>
+<tr>
+  <td align="center"><code>-v, --verbose</code></td>
+  <td>Enable verbose logging</td>
+</tr>
+<!-- <tr>
+  <td align="center"><code>-h, --help</code></td>
+  <td>Print help information</td>
+</tr> -->
+</table>
+
+#### Example Commands
+
+```bash
+# Run a program with default settings
+./target/release/executing -p ./examples/programs/reach.dl -f ./examples/facts
+
+# Run on 16 threads and tab as delimiter
+./target/release/executing -p ./examples/programs/tc.dl -f ./examples/csvs -d $'\t' -w 16
+
+# Run on verbose output and custom output directory
+./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./results -v
+```
+
+### Datalog Syntax
+
+FlowLog supports standard Datalog with common extensions:
+
+```datalog
+// Simple graph reach
+reach(x) :- source(x).
+reach(y) :- reach(x), edge(x, y).
+
+// constraints
+two_hops(x, z) :- edge(x, y), edge(y, z), x != z.
+
+// negation
+indirect_only(x, z) :- edge(x, y), edge(y, z), !edge(x, z).
+
+// aggregation
+count_paths(x, z, COUNT(y)) :- edge(x, y), edge(y, z).
+```
+
+
+## Examples
+
+The `examples/` directory contains several sample Datalog programs:
+
+- `examples/programs/batik.dl`: Basic graph analysis
+- `examples/programs/`: Other example programs tested
+
+## Contributing
+
+Contributions are welcome! Feel free to submit a PR.
 
 
 
-
-
-<!-- ## To Dos
-
-#### more supports
-
-- filtering (cross-joins)
-
-  ```
-  sg(x, y) :- arc(p, x), arc(p, y), x != y.
-  ```
-
-- aliasing
-
-  ```
-  valueFlow(y, x) :- assign(x, x), pointsto(x, y). // in the rhs
-  valueFlow(x, x) :- assign(x, y). // in the head
-  ```
-
-- constant equality constraints
-
-  ```
-  sg(x, y) :- arc(p, x), arc(p, y), x = 3.
-  ``` -->
-
-  
-<!-- 
-#### doop setups
-
-  ```
-  python3 ../monoid/doop/convert.py ../doop/last-analysis .
-  python3 ../monoid/doop/replace.py ../monoid/doop/Literal.facts ../FlowLogTest/examples/programs/doop-souffle.dl batik-souffle.dl
-  python3 ../monoid/doop/replace.py ../monoid/doop/Literal.facts ../FlowLogTest/examples/programs/doop.dl batik.dl
-
-  scp ./batik.zip hangdong@royal-05.cs.wisc.edu:/home/hangdong/public/html/data/
-  ```
-
-
-
-run souffle
-  ```
-  souffle -o batik-souffle ./batik-souffle.dl -j 16
-  // -p log if want profiler
-  time ./batik-souffle -F/users/hangdong/batik -j 16
-  souffleprof log -j // then download html
-  ```
-
-run eclair
-  ```
-  ./target/release/executing -p /users/hangdong/batik/batik.dl -f /users/hangdong/batik -c ./examples/csvs -d $'\t' -w 64
-  ``` -->
-
-
-## To Do List
-
-Planned features and optimizations for the next versions of FlowLog.
-
-### Compile-time
-- Parallel Compilation
-      [Cutting down Rust compile times](https://www.feldera.com/blog/cutting-down-rust-compile-times-from-30-to-2-minutes-with-one-thousand-crates)
-- Macro fallback arity
-      Clamp macro-generated arities to a fixed max (e.g., 10) to reduce codegen overhead
-
-
-### Rule Support
-
-#### Fact Rules
-- Constant rules like:  
-  `T(a) :- true or false.`
-
-#### Boolean Rules
-- Zero-arity heads:  
-  `T( ) :- R(x), S(x, y).`
-
-
-### Sideways Information Passing (SIP)
-- Integrate SIP into the planner  
-      (currently via rule rewriting at catalog level)
-
-
-### Query Optimization
-- Refine the cost model
-- Pessimistic cardinality estimators for join ordering and planning
-
-
-### Arithmetics in Heads
-- Expressions and constants in rule heads:  
-  `T(x + z, 1) :- R(x, y), S(y, z).`
-
-
-### Group-By Aggregations
-- Translate group-by to `reduce_core` in Differential Dataflow
-- Test novel recursive aggregation optimizations Simon proposed
