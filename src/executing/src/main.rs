@@ -60,6 +60,7 @@ fn main() {
         args.delimiter().as_bytes()[0],
         strata,
         program_query_plan.program_plan().to_owned(),
+        args.csvs()
     );
 
     println!("success query");

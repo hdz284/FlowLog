@@ -4,8 +4,8 @@ use itertools::iproduct;
 use syn::Ident;
 use proc_macro2::Span;
 
-const KV_MAX: usize = 4;
-const ROW_MAX: usize = 5;
+const KV_MAX: usize = 2;
+const ROW_MAX: usize = 2;
 const PROD_MAX: usize = 2;
 
 /* ------------------------------------------------------------------------ */

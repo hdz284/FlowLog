@@ -35,6 +35,7 @@ pub fn program_execution(
     delimiter: u8,
     strata: Strata,
     group_plans: Vec<GroupStrataQueryPlan>,
+    csvs_path: String,
 ) {
     timely::execute_from_args(timely_args.into_iter(), move |worker| {
         let timer = ::std::time::Instant::now();
@@ -171,6 +172,30 @@ pub fn program_execution(
                         group_plan.last_signatures_map(), 
                         &mut row_map
                     );
+
+                    // Add explicit printing for output relations regardless of verbose flag
+                    for output_rel in strata.program().idbs() {
+                        let rel_name = output_rel.name();
+                        if let Some(signature) = group_plan
+                            .head_signatures_set()
+                            .iter()
+                            .find(|sig| sig.name() == rel_name)
+                        {
+                            if let Some(rel) = row_map.get(signature) {
+                                // Print relation with formatted name
+                                printsize_generic(rel, &format!("[{}]", rel_name), false);
+                       
+                                let full_path = format!("{}/{}", csvs_path, rel_name);
+                                write_relation_to_file(
+                                    rel,
+                                    &format!("[{}]", rel_name),
+                                    &full_path,
+                                    id,
+                                );
+                                
+                            }
+                        }
+                    }
     
                     /* inspect idbs of the non-recursive strata (optional) */
                     if verbose {
@@ -396,8 +421,13 @@ pub fn program_execution(
                         .into_iter()
                         .sorted_by_key(|(sig, _)| sig.name().to_owned())
                     {   
-                        // add a [] around name
-                        printsize_generic(&recursive_rel, &format!("[{}]", recursive_signature.name()), true);
+                        let rel_name = recursive_signature.name();
+                        // Print the relation
+                        printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
+
+                        // Write to file 
+                        let full_path = format!("{}/{}", csvs_path, rel_name);
+                        write_relation_to_file(&recursive_rel, rel_name, &full_path, id);
                         
                         // if the rel is in the row_map, it will be overwritten
                         row_map.insert(
@@ -460,6 +490,12 @@ pub fn program_execution(
 
         if id == 0 {
             println!("{:?}:\tFixpoint reached", timer.elapsed());
+
+            for relation in strata.program().idbs() {
+                let full_path = format!("{}/{}", csvs_path, relation.name());
+                merge_relation_partitions(&full_path, peers);
+                
+            }
         }
     }).expect("execute_from_args dies");
 }
