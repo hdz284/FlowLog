@@ -7,7 +7,7 @@ use planning::program::ProgramQueryPlan;
 // use strata::dependencies::DependencyGraph;
 
 fn main() {
-    let program_source = "./examples/programs/doop_help.dl";
+    let program_source = "./examples/programs/ddisasm-test.dl";
     let unparsed_str = fs::read_to_string(program_source)
         .unwrap_or_else(|_| panic!("can't read program from \"{}\"", program_source));
 
@@ -43,6 +43,22 @@ fn main() {
         true, 
         format!("{}", program_query_plan), 
         true);
+
+    /* arity analysis */
+    debugging::debugger::display_info(
+        "Arity Checks",
+        false,
+        format!(
+            "Maximum arity required: {}\nMax arities per transformation:\n{}",
+            program_query_plan.max_arity(),
+            program_query_plan.arity_analysis()
+                .iter()
+                .map(|(name, inputs, output)| format!("  {} @ inputs: {:?} -> output: {:?}", name, inputs, output))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+        true
+    );
 
     println!("success planning");
 }

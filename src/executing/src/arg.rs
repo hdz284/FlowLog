@@ -30,6 +30,10 @@ pub struct Args {
     #[arg(short, long, default_value_t = false)]
     issip: bool,
 
+    /// enable fat mode for larger arities (uses heap-allocated SmallVec)
+    #[arg(long, default_value_t = false)]
+    fat_mode: bool,
+
     /// timely arguments
     /// -w, --workers: number of per-process worker threads.
     #[arg(short, long, default_value_t = 1)]
@@ -63,6 +67,10 @@ impl Args {
 
     pub fn is_global_optimized(&self) -> bool {
         self.issip
+    }
+
+    pub fn fat_mode(&self) -> bool {
+        self.fat_mode
     }
 
     pub fn timely_args(&self) -> Vec<String> {

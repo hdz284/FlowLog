@@ -1,5 +1,6 @@
 use std::fmt;
 use arrayvec::ArrayVec;
+use smallvec::SmallVec;
 use std::fmt::Debug;
 use std::hash::Hash;
 use serde::{Deserialize, Serialize};
@@ -54,6 +55,47 @@ impl<const N: usize> Array for Row<N> {
 }
 
 impl<const N: usize> fmt::Display for Row<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f, "{}",
+            self.values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", ")
+        )
+    }
+}
+
+
+
+/// heap-allocated row for large arities using SmallVec as fallback
+#[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FatRow {
+    values: SmallVec<[i32; crate::FALLBACK_ARITY]>,
+}
+
+impl FatRow {
+    pub fn new() -> Self {
+        Self {
+            values: SmallVec::new(),
+        }
+    }
+}
+
+impl Array for FatRow {
+    fn push(&mut self, v: i32) {
+        self.values.push(v);
+    }
+
+    fn arity(&self) -> usize {
+        self.values.len()
+    }
+
+    fn column(&self, id: usize) -> i32 {
+        unsafe {
+            *self.values.get_unchecked(id)
+        }
+    }
+}
+
+impl fmt::Display for FatRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f, "{}",

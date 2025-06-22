@@ -57,19 +57,21 @@ where
     G: Scope,
     G::Timestamp: Lattice+TotalOrder 
 {
-    let arity = rel.arity();
-    match arity {
-        1 => printsize(rel.rel_1(), name, is_recursive),
-        2 => printsize(rel.rel_2(), name, is_recursive),
-        3 => printsize(rel.rel_3(), name, is_recursive),
-        4 => printsize(rel.rel_4(), name, is_recursive),
-        5 => printsize(rel.rel_5(), name, is_recursive),
-        6 => printsize(rel.rel_6(), name, is_recursive),
-        7 => printsize(rel.rel_7(), name, is_recursive),
-        8 => printsize(rel.rel_8(), name, is_recursive),
-        9 => printsize(rel.rel_9(), name, is_recursive),
-        10 => printsize(rel.rel_10(), name, is_recursive),
-        _ => panic!("printsize_generic unimplemented for arity {}", arity),
+    if rel.is_fat() {
+        printsize(rel.rel_fat(), name, is_recursive)
+    } else {
+        let arity = rel.arity();
+        match arity {
+            1 => printsize(rel.rel_1(), name, is_recursive),
+            2 => printsize(rel.rel_2(), name, is_recursive),
+            3 => printsize(rel.rel_3(), name, is_recursive),
+            4 => printsize(rel.rel_4(), name, is_recursive),
+            5 => printsize(rel.rel_5(), name, is_recursive),
+            6 => printsize(rel.rel_6(), name, is_recursive),
+            7 => printsize(rel.rel_7(), name, is_recursive),
+            8 => printsize(rel.rel_8(), name, is_recursive),
+            _ => unreachable!("arity {} should be handled by fixed-size variants", arity),
+        }
     }
 }
 
@@ -79,18 +81,20 @@ where
     G: Scope,
     G::Timestamp: Lattice+TotalOrder 
 {
-    let arity = rel.arity();
-    match arity {
-        1 => print(rel.rel_1(), name),
-        2 => print(rel.rel_2(), name),
-        3 => print(rel.rel_3(), name),
-        4 => print(rel.rel_4(), name),
-        5 => print(rel.rel_5(), name),
-        6 => print(rel.rel_6(), name),
-        7 => print(rel.rel_7(), name),
-        8 => print(rel.rel_8(), name),
-        9 => print(rel.rel_9(), name),
-        10 => print(rel.rel_10(), name),
-        _ => panic!("print_generic unimplemented for arity {}", arity),
+    if rel.is_fat() {
+        print(rel.rel_fat(), name)
+    } else {
+        let arity = rel.arity();
+        match arity {
+            1 => print(rel.rel_1(), name),
+            2 => print(rel.rel_2(), name),
+            3 => print(rel.rel_3(), name),
+            4 => print(rel.rel_4(), name),
+            5 => print(rel.rel_5(), name),
+            6 => print(rel.rel_6(), name),
+            7 => print(rel.rel_7(), name),
+            8 => print(rel.rel_8(), name),
+            _ => unreachable!("arity {} should be handled by fixed-size variants", arity),
+        }
     }
 }

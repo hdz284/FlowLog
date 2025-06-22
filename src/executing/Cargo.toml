@@ -15,20 +15,18 @@ reading = { path = "../reading" }
 macros = { path = "../macros" }
 
 
-clap = { version = "4.5.20", features = ["derive"] }
-itertools = "0.14.0"
+clap = { workspace = true, features = ["derive"] }
+itertools = { workspace = true }
 
-# timely = "0.19.0"
-# differential-dataflow = "0.13.7"
-timely = "0.20.0"
-differential-dataflow = "0.14.2"
+timely = { workspace = true }
+differential-dataflow = { workspace = true }
 
 # timely = "0.12.0"
 # differential-dataflow = { path = "/Users/hangdong/.cargo/registry/src/index.crates.io-6f17d22bba15001f/differential-dataflow-0.12.0" }
 # differential-dataflow = "0.13.1"
 # differential-dataflow = { path = "/users/hangdong/differential" }
-arrayvec = "0.7.6"
-mimalloc = { version = "*" }
+arrayvec = { workspace = true }
+mimalloc = { workspace = true }
 
 
 

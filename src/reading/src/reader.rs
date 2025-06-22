@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------------------------ */
-/* I/O methods */
+/* I/O methods - Macro-based implementation for arities 1 through MAX_ARITY */
 /* ------------------------------------------------------------------------------------ */
 
 use std::fs::File;
@@ -12,15 +12,16 @@ use differential_dataflow::difference::Present;
 use timely::dataflow::Scope;
 use timely::order::Product;
 
-
 use parsing::decl::RelDecl;
 use crate::row::Row;
+use crate::row::FatRow;
 use crate::row::Array;
 use crate::rel::Rel;
 use crate::session::InputSessionGeneric;
 use crate::Time;
 use crate::Iter;
 use crate::Semiring;
+
 
 #[inline(always)]
 pub fn reader(rel_path: &str) -> impl Iterator<Item = Vec<u8>> {
@@ -36,65 +37,106 @@ pub fn reader(rel_path: &str) -> impl Iterator<Item = Vec<u8>> {
 } 
 
 
-macro_rules! read_row_fn {
-    ($name:ident, $row_type:ty) => {
-        pub fn $name(
-            rel_decl: &RelDecl,
-            rel_path: &str,
-            delimiter: &u8,
-            session: &mut InputSession<Time, $row_type, Semiring>,
-            id: usize,
-            peers: usize
-        ) {
-            let rel_arity = rel_decl.arity();
+/* ------------------------------------------------------------------------------------ */
+/* read row for thin relations */
+/* ------------------------------------------------------------------------------------ */
+macro_rules! generate_read_row_functions {
+    ($($n:expr),*) => {
+        $(
+            paste::paste! {
+                pub fn [<read_row_ $n>](
+                    rel_decl: &RelDecl,
+                    rel_path: &str,
+                    delimiter: &u8,
+                    session: &mut InputSession<Time, Row<$n>, Semiring>,
+                    id: usize,
+                    peers: usize
+                ) {
+                    let rel_arity = rel_decl.arity();
 
-            if id == 0 {
-                println!("reading {} from {}", rel_decl, rel_path);
+                    if id == 0 {
+                        println!("reading {} from {}", rel_decl, rel_path);
+                    }
+
+                    let ingest = 
+                        reader(rel_path)
+                            .filter_map(move |line| {
+                                let mut tuple = line.split(|&bt| bt == *delimiter);
+
+                                let first_value = std::str::from_utf8(tuple.next()?).ok()?.parse::<i32>().ok()?;
+                                if (first_value as usize) % peers != id {
+                                    return None;
+                                }
+
+                                let mut row = Row::<$n>::new();
+                                row.push(first_value);
+
+                                for value in tuple {
+                                    let parsed_value = std::str::from_utf8(value).ok()?.parse::<i32>().ok()?;
+                                    row.push(parsed_value);
+                                }
+
+                                if row.arity() != rel_arity {
+                                    panic!("expected {} values, got {}", rel_arity, row.arity());
+                                }
+
+                                Some(row)
+                            });
+                    
+                    ingest.for_each(|row| session.update(row, Present {}));
+                }
             }
-
-            let ingest = 
-                reader(rel_path)
-                    .filter_map(move |line| {
-                        let mut tuple = line.split(|&bt| bt == *delimiter);
-
-                        let first_value = std::str::from_utf8(tuple.next()?).ok()?.parse::<i32>().ok()?;
-                        if (first_value as usize) % peers != id {
-                            return None;
-                        }
-
-                        let mut row = <$row_type>::new();
-                        row.push(first_value);
-
-                        for value in tuple {
-                            let parsed_value = std::str::from_utf8(value).ok()?.parse::<i32>().ok()?;
-                            row.push(parsed_value);
-                        }
-
-                        if row.arity() != rel_arity {
-                            panic!("expected {} values, got {}", rel_arity, row.arity());
-                        }
-
-                        Some(row)
-                    });
-            
-            ingest.for_each(|row| session.update(row, Present {}));
-        }
+        )*
     };
 }
 
-read_row_fn!(read_row_1, Row<1>);
-read_row_fn!(read_row_2, Row<2>);
-read_row_fn!(read_row_3, Row<3>);
-read_row_fn!(read_row_4, Row<4>);
-read_row_fn!(read_row_5, Row<5>);
-read_row_fn!(read_row_6, Row<6>);
-read_row_fn!(read_row_7, Row<7>);
-read_row_fn!(read_row_8, Row<8>);
-read_row_fn!(read_row_9, Row<9>);
-read_row_fn!(read_row_10, Row<10>);
+// `read_row_i(rel_decl: &RelDecl, rel_path: &str, delimiter: &u8, session: &mut InputSession<Time, Row<i>, Semiring>, id: usize, peers: usize)` for i from 1 to 8
+generate_read_row_functions!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
-// ...
 
+
+
+/* ------------------------------------------------------------------------------------ */
+/* read row for fat relations */
+/* ------------------------------------------------------------------------------------ */
+
+pub fn read_row_fat(
+    rel_decl: &RelDecl,
+    rel_path: &str,
+    delimiter: &u8,
+    session: &mut InputSession<Time, FatRow, Semiring>,
+    id: usize,
+    peers: usize,
+) {
+    let rel_arity = rel_decl.arity();
+    
+    let ingest = 
+        reader(rel_path)
+            .filter_map(move |line| {
+                let mut tuple = line.split(|&bt| bt == *delimiter);
+
+                let first_value = std::str::from_utf8(tuple.next()?).ok()?.parse::<i32>().ok()?;
+                if (first_value as usize) % peers != id {
+                    return None;
+                }
+
+                let mut row = FatRow::new();
+                row.push(first_value);
+
+                for value in tuple {
+                    let parsed_value = std::str::from_utf8(value).ok()?.parse::<i32>().ok()?;
+                    row.push(parsed_value);
+                }
+
+                if row.arity() != rel_arity {
+                    panic!("expected {} values, got {}", rel_arity, row.arity());
+                }
+
+                Some(row)
+            });
+    
+    ingest.for_each(|row| session.update(row, Present {}));
+}
 
 
 
@@ -103,54 +145,39 @@ read_row_fn!(read_row_10, Row<10>);
 /* ------------------------------------------------------------------------------------ */
 /* construct session and table of some arity */
 /* ------------------------------------------------------------------------------------ */
-pub fn construct_session_and_table<G: Scope<Timestamp=Time>>(
-    scope: &mut G,
-    arity: usize,
-) -> (InputSessionGeneric<Time>, Rel<G>) {
-    match arity {
-        1 => {
-            let (session, input_rel) = scope.new_collection::<Row<1>, Semiring>();
-            (InputSessionGeneric::InputSession1(session), Rel::Collection1(input_rel))
+
+macro_rules! generate_construct_session_and_table {
+    ($($n:expr),*) => {
+        pub fn construct_session_and_table<G: Scope<Timestamp=Time>>(
+            scope: &mut G,
+            arity: usize,
+            fat_mode: bool,
+        ) -> (InputSessionGeneric<Time>, Rel<G>) {
+            if !fat_mode {
+                match arity {
+                    $(
+                        $n => {
+                            let (session, input_rel) = scope.new_collection::<Row<$n>, Semiring>();
+                            paste::paste! {
+                                (InputSessionGeneric::[<InputSession $n>](session), Rel::[<Collection $n>](input_rel))
+                            }
+                        }
+                    )*
+                    _ => unreachable!("construct_session_and_table: arity {} overflows", arity),
+                }
+            } else {
+                let (session, input_rel) = scope.new_collection::<FatRow, Semiring>();
+                (
+                    InputSessionGeneric::InputSessionFat(session, arity),
+                    Rel::CollectionFat(input_rel, arity)
+                )
+            }
         }
-        2 => {
-            let (session, input_rel) = scope.new_collection::<Row<2>, Semiring>();
-            (InputSessionGeneric::InputSession2(session), Rel::Collection2(input_rel))
-        }
-        3 => {
-            let (session, input_rel) = scope.new_collection::<Row<3>, Semiring>();
-            (InputSessionGeneric::InputSession3(session), Rel::Collection3(input_rel))
-        }
-        4 => {
-            let (session, input_rel) = scope.new_collection::<Row<4>, Semiring>();
-            (InputSessionGeneric::InputSession4(session), Rel::Collection4(input_rel))
-        }
-        5 => {
-            let (session, input_rel) = scope.new_collection::<Row<5>, Semiring>();
-            (InputSessionGeneric::InputSession5(session), Rel::Collection5(input_rel))
-        }
-        6 => {
-            let (session, input_rel) = scope.new_collection::<Row<6>, Semiring>();
-            (InputSessionGeneric::InputSession6(session), Rel::Collection6(input_rel))
-        }
-        7 => {
-            let (session, input_rel) = scope.new_collection::<Row<7>, Semiring>();
-            (InputSessionGeneric::InputSession7(session), Rel::Collection7(input_rel))
-        }
-        8 => {
-            let (session, input_rel) = scope.new_collection::<Row<8>, Semiring>();
-            (InputSessionGeneric::InputSession8(session), Rel::Collection8(input_rel))
-        }
-        9 => {
-            let (session, input_rel) = scope.new_collection::<Row<9>, Semiring>();
-            (InputSessionGeneric::InputSession9(session), Rel::Collection9(input_rel))
-        }
-        10 => {
-            let (session, input_rel) = scope.new_collection::<Row<10>, Semiring>();
-            (InputSessionGeneric::InputSession10(session), Rel::Collection10(input_rel))
-        }
-        _ => panic!("arity too large: {}", arity),
-    }
+    };
 }
+
+// `construct_session_and_table_i(scope: &mut G, arity: usize) -> (InputSessionGeneric<Time>, Rel<G>)` for i from 1 to 8
+generate_construct_session_and_table!(1, 2, 3, 4, 5, 6, 7, 8);
 
 
 
@@ -158,29 +185,38 @@ pub fn construct_session_and_table<G: Scope<Timestamp=Time>>(
 /* ------------------------------------------------------------------------------------ */
 /* read and insert row of some arity */
 /* ------------------------------------------------------------------------------------ */
-pub fn read_row_generic(
-    rel_decl: &RelDecl,
-    rel_path: &str,
-    delimiter: &u8,
-    session_generic: &mut InputSessionGeneric<Time>,
-    id: usize,
-    peers: usize,
-) {
-    match rel_decl.arity() {
-        1 => read_row_1(rel_decl, rel_path, delimiter, &mut session_generic.listen_1(), id, peers),
-        2 => read_row_2(rel_decl, rel_path, delimiter, &mut session_generic.listen_2(), id, peers),
-        3 => read_row_3(rel_decl, rel_path, delimiter, &mut session_generic.listen_3(), id, peers),
-        4 => read_row_4(rel_decl, rel_path, delimiter, &mut session_generic.listen_4(), id, peers),
-        5 => read_row_5(rel_decl, rel_path, delimiter, &mut session_generic.listen_5(), id, peers),
-        6 => read_row_6(rel_decl, rel_path, delimiter, &mut session_generic.listen_6(), id, peers),
-        7 => read_row_7(rel_decl, rel_path, delimiter, &mut session_generic.listen_7(), id, peers),
-        8 => read_row_8(rel_decl, rel_path, delimiter, &mut session_generic.listen_8(), id, peers),
-        9 => read_row_9(rel_decl, rel_path, delimiter, &mut session_generic.listen_9(), id, peers),
-        10 => read_row_10(rel_decl, rel_path, delimiter, &mut session_generic.listen_10(), id, peers),
-        // ...
-        _ => panic!("arity too large: {}", rel_decl.arity()),
-    }
+
+macro_rules! generate_read_row_generic {
+    ($($n:expr),*) => {
+        pub fn read_row_generic(
+            rel_decl: &RelDecl,
+            rel_path: &str,
+            delimiter: &u8,
+            session_generic: &mut InputSessionGeneric<Time>,
+            id: usize,
+            peers: usize,
+            fat_mode: bool,
+        ) {
+            let arity = rel_decl.arity();
+            if !fat_mode {
+                match arity {
+                    $(
+                        $n => paste::paste! {
+                            [<read_row_ $n>](rel_decl, rel_path, delimiter, &mut session_generic.[<listen_ $n>](), id, peers)
+                        },
+                    )*
+                    _ => unreachable!("arity {} should be handled by match arms if <= MAX_FALLBACK_ARITY", arity),
+                }
+            } else {
+                // fat mode
+                read_row_fat(rel_decl, rel_path, delimiter, &mut session_generic.listen_fat(), id, peers)
+            }
+        }
+    };
 }
+
+// `read_row_generic(rel_decl: &RelDecl, rel_path: &str, delimiter: &u8, session_generic: &mut InputSessionGeneric<Time>, id: usize, peers: usize)` for i from 1 to 8
+generate_read_row_generic!(1, 2, 3, 4, 5, 6, 7, 8);
 
 
 
@@ -188,21 +224,33 @@ pub fn read_row_generic(
 /* construct semigroup variable of some arity */
 /* ------------------------------------------------------------------------------------ */
 
-pub fn construct_var<G: Scope<Timestamp=Product<Time, Iter>>>(
-    scope: &mut G,
-    arity: usize,
-) -> Rel<G> {
-    match arity {
-        1 => Rel::Variable1(SemigroupVariable::<_, Row<1>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        2 => Rel::Variable2(SemigroupVariable::<_, Row<2>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        3 => Rel::Variable3(SemigroupVariable::<_, Row<3>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        4 => Rel::Variable4(SemigroupVariable::<_, Row<4>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        5 => Rel::Variable5(SemigroupVariable::<_, Row<5>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        6 => Rel::Variable6(SemigroupVariable::<_, Row<6>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        7 => Rel::Variable7(SemigroupVariable::<_, Row<7>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        8 => Rel::Variable8(SemigroupVariable::<_, Row<8>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        9 => Rel::Variable9(SemigroupVariable::<_, Row<9>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        10 => Rel::Variable10(SemigroupVariable::<_, Row<10>, Semiring>::new(scope, Product::new(Default::default(), 1))),
-        _ => panic!("arity too large: {}", arity),
-    }
+macro_rules! generate_construct_var {
+    ($($n:expr),*) => {
+        pub fn construct_var<G: Scope<Timestamp=Product<Time, Iter>>>(
+            scope: &mut G,
+            arity: usize,
+            fat_mode: bool,
+        ) -> Rel<G> {
+            if !fat_mode {
+                match arity {
+                    $(
+                        $n => paste::paste! {
+                            Rel::[<Variable $n>](SemigroupVariable::<_, Row<$n>, Semiring>::new(scope, Product::new(Default::default(), 1)))
+                        },
+                    )*
+                    _ => unreachable!("arity {} should be handled by match arms if <= MAX_FALLBACK_ARITY", arity),
+                }
+            } else {
+                // fat mode
+                Rel::VariableFat(
+                    SemigroupVariable::<_, FatRow, Semiring>::new(scope, Product::new(Default::default(), 1)),
+                    arity
+                )
+            }
+        }
+    };
 }
+
+// `construct_var_i(scope: &mut G, arity: usize) -> Rel<G>` for i from 1 to 8
+generate_construct_var!(1, 2, 3, 4, 5, 6, 7, 8);
+

@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 parsing = { path = "../parsing" }  
-itertools = "0.13.0"
+itertools = { workspace = true }

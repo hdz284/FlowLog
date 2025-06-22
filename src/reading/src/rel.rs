@@ -22,6 +22,12 @@ use crate::Semiring;
 use crate::arrangements::ArrangedDict;
 
 /* ------------------------------------------------------------------------------------ */
+/* Fat support for fallback when arity exceeds MAX */
+/* ------------------------------------------------------------------------------------ */
+use crate::row::FatRow; 
+
+
+/* ------------------------------------------------------------------------------------ */
 /* Rel (wrap over collections) */
 /* ------------------------------------------------------------------------------------ */
 use crate::arrangements::ArrangedSet;
@@ -41,6 +47,23 @@ fn row_chop<const M: usize, const K: usize, const V: usize>() -> impl FnMut(Row<
     }
 }
 
+#[inline(always)]
+fn fat_row_chop(k_arity: usize, total_arity: usize) -> impl FnMut(FatRow) -> (FatRow, FatRow) {
+    move |v| {
+        let mut key = FatRow::new();
+        let mut value = FatRow::new();
+
+        for i in 0..k_arity { 
+            key.push(v.column(i)); 
+        }
+        for i in k_arity..total_arity { 
+            value.push(v.column(i)); 
+        }
+
+        (key, value)
+    }
+}
+
 macro_rules! impl_rels {
     ($($arity:literal),*) => {
         paste! {
@@ -53,6 +76,9 @@ macro_rules! impl_rels {
                     [<Collection $arity>](Collection<G, Row<$arity>, Semiring>),
                     [<Variable $arity>](SemigroupVariable<G, Row<$arity>, Semiring>),
                 )*
+                // fallback for large arities that store true arity
+                CollectionFat(Collection<G, FatRow, Semiring>, usize), 
+                VariableFat(SemigroupVariable<G, FatRow, Semiring>, usize), 
             }
 
             impl<G: Scope> Rel<G>
@@ -63,11 +89,22 @@ macro_rules! impl_rels {
                 pub fn arity(&self) -> usize {
                     match self {
                         $( Rel::[<Collection $arity>](_) | Rel::[<Variable $arity>](_) => $arity, )*
+                        Rel::CollectionFat(_, arity) => *arity,
+                        Rel::VariableFat(_, arity) => *arity,
                     }
                 }
 
+                /// Check if this Rel is fat
+                pub fn is_fat(&self) -> bool {
+                    matches!(self, Rel::CollectionFat(_, _) | Rel::VariableFat(_, _))
+                }
+
+                pub fn is_thin(&self) -> bool {
+                    !self.is_fat()
+                }
+                
                 $(
-                    // rel_1, rel_2, ...,
+                    // deref for rel_1, rel_2, ...,
                     pub fn [<rel_ $arity>](&self) -> &Collection<G, Row<$arity>, Semiring> {
                         match self {
                             Rel::[<Collection $arity>](rel) => rel,
@@ -77,16 +114,32 @@ macro_rules! impl_rels {
                     }
                 )*
 
-                pub fn arrange_set(&self) -> ArrangedSet<G> {
-                    match self.arity() {
-                        $(
-                            $arity => ArrangedSet::[<ArrangedSet $arity>](self.[<rel_ $arity>]().arrange_by_self()),
-                        )*
-                        _ => panic!("arity unimplemented {}", self.arity()),
+                // deref for Fat rel
+                pub fn rel_fat(&self) -> &Collection<G, FatRow, Semiring> {
+                    match self {
+                        Rel::CollectionFat(rel, _) => rel,
+                        Rel::VariableFat(var, _) => &*var,
+                        _ => panic!("cannot access fat rel on fixed-arity collection"),
                     }
                 }
 
-                
+                pub fn arrange_set(&self) -> ArrangedSet<G> {
+                    if self.is_fat() {
+                        // fat case
+                        ArrangedSet::ArrangedSetFat(
+                            self.rel_fat().arrange_by_self(),
+                            self.arity()
+                        )
+                    } else {
+                        let arity = self.arity();
+                        match arity {
+                            $(
+                                $arity => ArrangedSet::[<ArrangedSet $arity>](self.[<rel_ $arity>]().arrange_by_self()),
+                            )*
+                            _ => unreachable!("arity {} should be handled by fixed-size variants", arity),
+                        }
+                    }
+                }
 
                 pub fn concat(&self, other: &Rel<G>) -> Rel<G> {
                     assert_eq!(
@@ -96,13 +149,27 @@ macro_rules! impl_rels {
                         self.arity(),
                         other.arity()
                     );
-                    match self.arity() {
-                        $(
-                            $arity => Rel::[<Collection $arity>](
-                                self.[<rel_ $arity>]().concat(other.[<rel_ $arity>]())
-                            ),
-                        )*
-                        _ => panic!("concat must have identical arity"),
+
+                    assert_eq!(
+                        self.is_fat(),
+                        other.is_fat(),
+                        "concat: both rels must have the same row type (fat or thin)"
+                    );
+
+                    if self.is_fat() {
+                        Rel::CollectionFat(
+                            self.rel_fat().concat(other.rel_fat()),
+                            self.arity()
+                        )
+                    } else {
+                        match self.arity() {
+                            $(
+                                $arity => Rel::[<Collection $arity>](
+                                    self.[<rel_ $arity>]().concat(other.[<rel_ $arity>]())
+                                ),
+                            )*
+                            _ => unreachable!("concat: arity {} overflow", self.arity()),
+                        }
                     }
                 }
 
@@ -125,16 +192,33 @@ macro_rules! impl_rels {
                         self.arity(),
                         other.arity()
                     );
-                    match self.arity() {
-                        $(
-                            $arity => Rel::[<Collection $arity>](
-                                self.[<rel_ $arity>]()
-                                    .expand(|x| Some((x, 1 as i32)))
-                                    .concat(&other.[<rel_ $arity>]().expand(|x| Some((x, -1 as i32))))
-                                    .threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
-                            ),
-                        )*
-                        _ => panic!("subtract must have identical arity"),
+
+                    assert_eq!(
+                        self.is_fat(),
+                        other.is_fat(),
+                        "subtract: both rels must have the same row type (fat or thin)"
+                    );
+
+                    if self.is_fat() {
+                        Rel::CollectionFat(
+                            self.rel_fat()
+                                .expand(|x| Some((x, 1 as i32)))
+                                .concat(&other.rel_fat().expand(|x| Some((x, -1 as i32))))
+                                .threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {})),
+                            self.arity()
+                        )
+                    } else {
+                        match self.arity() {
+                            $(
+                                $arity => Rel::[<Collection $arity>](
+                                    self.[<rel_ $arity>]()
+                                        .expand(|x| Some((x, 1 as i32)))
+                                        .concat(&other.[<rel_ $arity>]().expand(|x| Some((x, -1 as i32))))
+                                        .threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+                                ),
+                            )*
+                            _ => unreachable!("subtract: arity {} overflow", self.arity()),
+                        }
                     }
                 }
                         
@@ -142,30 +226,50 @@ macro_rules! impl_rels {
                 where
                     I: Iterator<Item = Arc<Rel<G>>>,    
                 {
-                    match self.arity() {
-                        $(
-                            $arity => {
-                                let streams = others.into_iter().map(|other| match &*other {
-                                    Rel::[<Collection $arity>](rel) => rel.inner.clone(),
-                                    Rel::[<Variable $arity>](var) => var.inner.clone(),
-                                    _ => panic!("`others` must have the identical arity as `self` when concatenate"),
-                                });
-                
-                                Rel::[<Collection $arity>](self.[<rel_ $arity>]().inner.concatenate(streams).as_collection())
-                            },
-                        )*
-                        _ => panic!("concatenate must have identical arity"),
+                    if self.is_fat() {
+                        let streams = others.into_iter().map(|other| match &*other {
+                            Rel::CollectionFat(rel, _) => rel.inner.clone(),
+                            Rel::VariableFat(var, _) => var.inner.clone(),
+                            _ => panic!("`others` must have the identical row type as `self` when concatenate"),
+                        });
+                        
+                        Rel::CollectionFat(
+                            self.rel_fat().inner.concatenate(streams).as_collection(), 
+                            self.arity()
+                        )
+                    } else {
+                        match self.arity() {
+                            $(
+                                $arity => {
+                                    let streams = others.into_iter().map(|other| match &*other {
+                                        Rel::[<Collection $arity>](rel) => rel.inner.clone(),
+                                        Rel::[<Variable $arity>](var) => var.inner.clone(),
+                                        _ => panic!("`others` must have the identical arity as `self` when concatenate"),
+                                    });
+                    
+                                    Rel::[<Collection $arity>](self.[<rel_ $arity>]().inner.concatenate(streams).as_collection())
+                                },
+                            )*
+                            _ => unreachable!("concatenate: arity {} overflows", self.arity()),
+                        }
                     }
                 }
                 
                 pub fn threshold(&self) -> Rel<G> {
-                    match self.arity() {
-                        $(
-                            $arity => Rel::[<Collection $arity>](
-                                self.[<rel_ $arity>]().threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
-                            ),
-                        )*
-                        _ => panic!("threshold unimplemented"),
+                    if self.is_fat() {
+                        Rel::CollectionFat(
+                            self.rel_fat().threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {})), 
+                            self.arity()
+                        )
+                    } else {
+                        match self.arity() {
+                            $(
+                                $arity => Rel::[<Collection $arity>](
+                                    self.[<rel_ $arity>]().threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+                                ),
+                            )*
+                            _ => unreachable!("threshold: arity {} should be handled by fixed-size variants", self.arity()),
+                        }
                     }
                 }
 
@@ -173,13 +277,20 @@ macro_rules! impl_rels {
                 where
                     T: Refines<<G as ScopeParent>::Timestamp>+Lattice+TotalOrder,
                 {
-                    match self.arity() {
-                        $(
-                            $arity => Rel::[<Collection $arity>](
-                                self.[<rel_ $arity>]().enter(child)
-                            ),
-                        )*
-                        _ => panic!("enter unimplemented for arity {}", self.arity()),
+                    if self.is_fat() {
+                        Rel::CollectionFat(
+                            self.rel_fat().enter(child),
+                            self.arity()
+                        )
+                    } else {
+                        match self.arity() {
+                            $(
+                                $arity => Rel::[<Collection $arity>](
+                                    self.[<rel_ $arity>]().enter(child)
+                                ),
+                            )*
+                            _ => unreachable!("enter: arity {} overflows", self.arity()),
+                        }
                     }
                 }
 
@@ -191,16 +302,34 @@ macro_rules! impl_rels {
                         self.arity(),
                         result.arity()
                     );
-                    match self {
-                        // must be a SemigroupVariable
-                        $(
-                            Rel::[<Variable $arity>](var) => {
-                                Rel::[<Collection $arity>](
-                                    var.set(result.[<rel_ $arity>]()),
+
+                    assert_eq!(
+                        self.is_fat(),
+                        result.is_fat(),
+                        "set: both rels must have the same row type (fat or thin)"
+                    );
+
+                    if self.is_fat() {
+                        match self {
+                            Rel::VariableFat(var, arity) => {
+                                Rel::CollectionFat(
+                                    var.set(result.rel_fat()),
+                                    arity
                                 )
                             },
-                        )*
-                        _ => panic!("set unimplemented for arity {}", self.arity()),
+                            _ => panic!("set: self must be a Variable for fat case"),
+                        }
+                    } else {
+                        match self {
+                            $(
+                                Rel::[<Variable $arity>](var) => {
+                                    Rel::[<Collection $arity>](
+                                        var.set(result.[<rel_ $arity>]()),
+                                    )
+                                },
+                            )*
+                            _ => panic!("set: self must be a Variable for thin case"),
+                        }
                     }
                 }
             }
@@ -219,13 +348,21 @@ macro_rules! impl_leave {
                 T: Refines<<G as ScopeParent>::Timestamp>+Lattice+TotalOrder,
             {
                 pub fn leave(&self) -> Rel<G> {
-                    match self.arity() {
-                        $(
-                            $arity => Rel::[<Collection $arity>](
-                                self.[<rel_ $arity>]().leave()
-                            ),
-                        )*
-                        _ => panic!("leave unimplemented for arity {}", self.arity()),
+                    if self.is_fat() {
+                        let arity = self.arity();
+                        Rel::CollectionFat(
+                            self.rel_fat().leave(),
+                            arity
+                        )
+                    } else {
+                        match self.arity() {
+                            $(
+                                $arity => Rel::[<Collection $arity>](
+                                    self.[<rel_ $arity>]().leave()
+                                ),
+                            )*
+                            _ => unreachable!("leave: arity {} overflows", self.arity()),
+                        }
                     }
                 }
             }
@@ -234,11 +371,8 @@ macro_rules! impl_leave {
 }
 
 
-
-
-impl_leave!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-impl_rels!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-
+impl_leave!(1, 2, 3, 4, 5, 6, 7, 8);
+impl_rels!(1, 2, 3, 4, 5, 6, 7, 8);
 
 
 
@@ -255,15 +389,23 @@ macro_rules! impl_arranged_double {
             {
                 // chop a row rel to a (k, v) rel
                 pub fn arrange_double(&self, at: usize) -> DoubleRel<G> {
-                    match (at, self.arity()) {
-                        $(
-                            ($K, $M) => {
-                                DoubleRel::[<DoubleRel $K _ $V>](
-                                    self.[<rel_ $M>]().map(row_chop::<$M, $K, $V>())
-                                )
-                            },
-                        )*
-                        _ => panic!("unimplemented"),
+                    if self.is_fat() {
+                        DoubleRel::DoubleRelFat(
+                            self.rel_fat().map(fat_row_chop(at, self.arity())),
+                            at,
+                            self.arity() - at
+                        )
+                    } else {
+                        match (at, self.arity()) {
+                            $(
+                                ($K, $M) => {
+                                    DoubleRel::[<DoubleRel $K _ $V>](
+                                        self.[<rel_ $M>]().map(row_chop::<$M, $K, $V>())
+                                    )
+                                },
+                            )*
+                            _ => panic!("arrange_double: unsupported arity combination (at: {}, arity: {}) for fixed-size variants", at, self.arity()),
+                        }
                     }
                 }
             }
@@ -300,6 +442,7 @@ macro_rules! impl_double_rels {
                 $(
                     [<DoubleRel $K _ $V>](Collection<G, (Row<$K>, Row<$V>), Semiring>),
                 )*
+                DoubleRelFat(Collection<G, (FatRow, FatRow), Semiring>, usize, usize), // (collection, key_arity, value_arity)
             }
 
             impl<G: Scope> DoubleRel<G>
@@ -312,14 +455,30 @@ macro_rules! impl_double_rels {
                         $(
                             DoubleRel::[<DoubleRel $K _ $V>](_) => ($K, $V),
                         )*
+                        DoubleRel::DoubleRelFat(_, k_arity, v_arity) => (*k_arity, *v_arity),
                     }
                 }
 
+                /// Check if this DoubleRel uses FatRow (heap-allocated)
+                pub fn is_fat(&self) -> bool {
+                    matches!(self, DoubleRel::DoubleRelFat(_, _, _))
+                }
+
+                pub fn thin(&self) -> bool {
+                    !self.is_fat()
+                }
+
                 pub fn arrange_dict(&self) -> ArrangedDict<G> {
-                    match self {
-                        $(
-                            DoubleRel::[<DoubleRel $K _ $V>](rel) => ArrangedDict::[<ArrangedDict $K _ $V>](rel.arrange_by_key()),
-                        )*
+                    if self.is_fat() {
+                        let (k_arity, v_arity) = self.arity();
+                        ArrangedDict::ArrangedDictFat(self.rel_fat().arrange_by_key(), k_arity, v_arity)
+                    } else {
+                        match self {
+                            $(
+                                DoubleRel::[<DoubleRel $K _ $V>](rel) => ArrangedDict::[<ArrangedDict $K _ $V>](rel.arrange_by_key()),
+                            )*
+                            DoubleRel::DoubleRelFat(_, _, _) => unreachable!("arrange_dict: fat case should be handled elsewhere"),
+                        }
                     }
                 }
 
@@ -333,17 +492,28 @@ macro_rules! impl_double_rels {
                     }
                 )*
 
+                // fat accessor 
+                pub fn rel_fat(&self) -> &Collection<G, (FatRow, FatRow), Semiring> {
+                    match self {
+                        DoubleRel::DoubleRelFat(rel, _, _) => rel,
+                        _ => panic!("panic access to fat rel from non-fat DoubleRel"),
+                    }
+                }
+
                 pub fn enter<'a, T>(&self, child: &Child<'a, G, T>) -> DoubleRel<Child<'a, G, T>>
                 where
                     T: Refines<<G as ScopeParent>::Timestamp>+Lattice+TotalOrder,
                 {
-                    match self.arity() {
-                        $(
-                            ($K, $V) => DoubleRel::[<DoubleRel $K _ $V>](
-                                self.[<rel_ $K _ $V>]().enter(child)
-                            ),
-                        )*
-                        _ => panic!("enter unimplemented for arity {:?}", self.arity()),
+                    if self.is_fat() {
+                        let (k_arity, v_arity) = self.arity();
+                        DoubleRel::DoubleRelFat(self.rel_fat().enter(child), k_arity, v_arity)
+                    } else {
+                        match self {
+                            $(
+                                DoubleRel::[<DoubleRel $K _ $V>](rel) => DoubleRel::[<DoubleRel $K _ $V>](rel.enter(child)),
+                            )*
+                            DoubleRel::DoubleRelFat(_, _, _) => unreachable!("Fat case should be handled above"),
+                        }
                     }
                 }
             }
