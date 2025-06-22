@@ -4,7 +4,7 @@
  */
 // use differential_dataflow::difference::Abelian;
 use differential_dataflow::difference::Semigroup;
-use differential_dataflow::difference::Present;
+
 use differential_dataflow::operators::threshold::ThresholdTotal;
 use differential_dataflow::lattice::Lattice;
 use timely::order::TotalOrder;
@@ -12,6 +12,7 @@ use timely::dataflow::Scope;
 use differential_dataflow::{Collection, ExchangeData, Hashable};
 
 use crate::rel::Rel;
+use crate::semiring_one;
 
 fn printsize<G, D, R>(rel: &Collection<G, D, R>, name: &str, is_recursive: bool)
 where
@@ -26,7 +27,7 @@ where
         format!("Size of (non-recursive) {}", name)
     };
 
-    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|_| Some(((), 1 as i32)))
         .map(|_| ())
         .consolidate()
@@ -44,7 +45,7 @@ where
     R: Semigroup+ExchangeData {
         
     let name = name.to_owned();
-    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|x| Some((x, 1 as i32)))
         .inspect(move |(data, time, delta)| 
             println!("{}: ({}, {:?}, {})", name, data, time, delta) // use std::fmt::Display for D (i.e. Row)

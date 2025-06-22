@@ -4,9 +4,8 @@ use itertools::iproduct;
 use syn::Ident;
 use proc_macro2::Span;
 
-const KV_MAX: usize = 6;
-const ROW_MAX: usize = 8;
-const PROD_MAX: usize = 2;
+// Import centralized configuration constants
+use reading::config::{KV_MAX, ROW_MAX, PROD_MAX};
 
 /* ------------------------------------------------------------------------ */
 /* codegen for maps */

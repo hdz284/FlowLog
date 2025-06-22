@@ -13,9 +13,31 @@ FlowLog is an efficient, scalable and extensible Datalog engine built atop Diffe
 
 ### Building
 ```bash
-# Release build
+# Default build (Present semiring)
 cargo build --release
+
+# Build with isize semiring for incremental semantics
+cargo build --release --features isize-type --no-default-features
+
+# Debug builds
+cargo build                                           # Present semiring (default)
+cargo build --features isize-type --no-default-features  # isize semiring
 ```
+
+### Semiring Configuration
+
+FlowLog supports two semiring types for differential dataflow computations:
+
+- **Present** (default): Uses `differential_dataflow::difference::Present` for standard semantics
+- **isize**: Uses `isize` as the semiring type to enable incremental semantics
+
+#### Build Options
+
+| Configuration | Command | Use Case |
+|--------------|---------|----------|
+| Present (default) | `cargo build --release` | Standard usage, backwards compatible |
+| isize | `cargo build --release --features isize-type --no-default-features` | Incremental semantics, multiplicities |
+
 
 ## Command Line
 
@@ -32,7 +54,12 @@ cargo build --release
      ```
   - `./src/executing` - end to end execution
       ```bash
+      # Build with default Present semiring
       cargo build --release
+      
+      # Build with isize semiring for incremental semantics
+      cargo build --release --features isize-type --no-default-features
+      
       # Run on 64 threads for batik.dl program
       ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./examples/csvs -d $'\t' -w 64 
       ```
@@ -79,7 +106,10 @@ cargo build --release
 #### Example Commands
 
 ```bash
-# Run a program with default settings
+# Run a program with default settings (Present semiring)
+./target/release/executing -p ./examples/programs/reach.dl -f ./examples/facts
+
+# Run with isize semiring for incremental semantics
 ./target/release/executing -p ./examples/programs/reach.dl -f ./examples/facts
 
 # Run on 16 threads and tab as delimiter
@@ -87,6 +117,11 @@ cargo build --release
 
 # Run on verbose output and custom output directory
 ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./results -v
+```
+
+**Note**: To use the isize semiring version for incremental semantics, build with:
+```bash
+cargo build --release --features isize-type --no-default-features
 ```
 
 ### Datalog Syntax
@@ -115,6 +150,13 @@ The `examples/` directory contains several sample Datalog programs:
 
 - `examples/programs/batik.dl`: DOOP program for batik
 - `examples/programs/`: Other sample programs tested
+
+## Performance
+
+FlowLog supports two semiring configurations:
+- **Present semiring** (default): Standard Datalog carrying set semantics
+- **isize semiring**: Incremental semantics via multiplicities (slower but supports richer semantics)
+
 
 ## Contributing
 

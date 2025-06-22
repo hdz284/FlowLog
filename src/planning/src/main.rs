@@ -36,7 +36,7 @@ fn main() {
     );
 
     // planning
-    let program_query_plan = ProgramQueryPlan::from_strata(&strata, true);
+    let program_query_plan = ProgramQueryPlan::from_strata(&strata, false);
 
     debugging::debugger::display_info(
         "Program Query Plans", 

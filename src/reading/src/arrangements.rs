@@ -9,11 +9,12 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::Data;
 
 use crate::Semiring;
+use crate::semiring_one;
 use crate::row::Row;
 use crate::rel::Rel;
 use crate::row::FatRow;
 
-use differential_dataflow::difference::Present;
+
 use differential_dataflow::trace::implementations::Vector;
 use differential_dataflow::trace::implementations::ord_neu::OrdValBatch;
 use differential_dataflow::trace::implementations::spine_fueled::Spine;
@@ -175,14 +176,14 @@ macro_rules! impl_sets {
                     if self.is_fat() {
                         // FatRow case
                         Rel::CollectionFat(
-                            self.set_fat().threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {})),
+                            self.set_fat().threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one())),
                             self.arity()
                         )
                     } else {
                         // Fixed-size Row<N> case
                         match self {
                             $( ArrangedSet::[<ArrangedSet $K>](set) => Rel::[<Collection $K>](
-                                set.threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+                                set.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
                                 ),
                             )*
                             ArrangedSet::ArrangedSetFat(_, _) => unreachable!("Fat case should be handled elsewhere"),

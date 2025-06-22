@@ -8,7 +8,7 @@ use std::io::{BufRead, BufReader};
 use differential_dataflow::input::InputSession;
 use differential_dataflow::input::Input;
 use differential_dataflow::operators::iterate::SemigroupVariable;
-use differential_dataflow::difference::Present;
+
 use timely::dataflow::Scope;
 use timely::order::Product;
 
@@ -21,6 +21,7 @@ use crate::session::InputSessionGeneric;
 use crate::Time;
 use crate::Iter;
 use crate::Semiring;
+use crate::semiring_one;
 
 
 #[inline(always)]
@@ -83,7 +84,7 @@ macro_rules! generate_read_row_functions {
                                 Some(row)
                             });
                     
-                    ingest.for_each(|row| session.update(row, Present {}));
+                    ingest.for_each(|row| session.update(row, semiring_one()));
                 }
             }
         )*
@@ -135,7 +136,7 @@ pub fn read_row_fat(
                 Some(row)
             });
     
-    ingest.for_each(|row| session.update(row, Present {}));
+    ingest.for_each(|row| session.update(row, semiring_one()));
 }
 
 

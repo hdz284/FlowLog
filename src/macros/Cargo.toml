@@ -3,8 +3,13 @@ name = "macros"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["present-type"]
+present-type = ["reading/present-type"]
+isize-type = ["reading/isize-type"]
+
 [dependencies]
-reading = { path = "../reading" }
+reading = { path = "../reading", default-features = false }
 
 
 syn = { workspace = true, features = ["full"] }

@@ -26,13 +26,13 @@ pub struct Args {
     #[arg(short, long, default_value = ",")]
     delimiter: String,
 
-    /// is optimized
-    #[arg(short, long, default_value_t = false)]
-    issip: bool,
-
     /// enable fat mode for larger arities (uses heap-allocated SmallVec)
     #[arg(long, default_value_t = false)]
     fat_mode: bool,
+
+    /// disable common subexpression reuse to examine and compare the benefit of this reuse
+    #[arg(long, default_value_t = false)]
+    no_sharing: bool,
 
     /// timely arguments
     /// -w, --workers: number of per-process worker threads.
@@ -65,12 +65,12 @@ impl Args {
         &self.delimiter
     }
 
-    pub fn is_global_optimized(&self) -> bool {
-        self.issip
-    }
-
     pub fn fat_mode(&self) -> bool {
         self.fat_mode
+    }
+
+    pub fn no_sharing(&self) -> bool {
+        self.no_sharing
     }
 
     pub fn timely_args(&self) -> Vec<String> {

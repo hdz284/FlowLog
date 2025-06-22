@@ -5,14 +5,28 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# Release build with isize semiring
+# cargo build --release --features isize-type --no-default-features
+
+# Release build with Present semiring (default)
+# cargo build --release
+
+# Release build with Present semiring (explicit)
+# cargo build --release --features present-type --no-default-features
+
+[features]
+default = ["present-type"]
+present-type = ["reading/present-type", "macros/present-type"]
+isize-type = ["reading/isize-type", "macros/isize-type"]
+
 [dependencies]
 debugging = { path = "../debugging" }  
 parsing = { path = "../parsing" }  
 strata = { path = "../strata" }  
 catalog = { path = "../catalog" }  
 planning = { path = "../planning" }
-reading = { path = "../reading" }
-macros = { path = "../macros" }
+reading = { path = "../reading", default-features = false }
+macros = { path = "../macros", default-features = false }
 
 
 clap = { workspace = true, features = ["derive"] }

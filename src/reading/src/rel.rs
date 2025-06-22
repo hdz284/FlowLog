@@ -8,7 +8,7 @@ use timely::dataflow::scopes::Child;
 use timely::progress::timestamp::Refines;
 use timely::dataflow::ScopeParent;
 
-use differential_dataflow::difference::Present;
+
 use differential_dataflow::Data;
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::arrange::ArrangeBySelf;
@@ -19,6 +19,7 @@ use differential_dataflow::AsCollection;
 use differential_dataflow::operators::iterate::SemigroupVariable;
 
 use crate::Semiring;
+use crate::semiring_one;
 use crate::arrangements::ArrangedDict;
 
 /* ------------------------------------------------------------------------------------ */
@@ -204,7 +205,7 @@ macro_rules! impl_rels {
                             self.rel_fat()
                                 .expand(|x| Some((x, 1 as i32)))
                                 .concat(&other.rel_fat().expand(|x| Some((x, -1 as i32))))
-                                .threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {})),
+                                .threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one())),
                             self.arity()
                         )
                     } else {
@@ -214,7 +215,7 @@ macro_rules! impl_rels {
                                     self.[<rel_ $arity>]()
                                         .expand(|x| Some((x, 1 as i32)))
                                         .concat(&other.[<rel_ $arity>]().expand(|x| Some((x, -1 as i32))))
-                                        .threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+                                        .threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
                                 ),
                             )*
                             _ => unreachable!("subtract: arity {} overflow", self.arity()),
@@ -258,14 +259,14 @@ macro_rules! impl_rels {
                 pub fn threshold(&self) -> Rel<G> {
                     if self.is_fat() {
                         Rel::CollectionFat(
-                            self.rel_fat().threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {})), 
+                            self.rel_fat().threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one())), 
                             self.arity()
                         )
                     } else {
                         match self.arity() {
                             $(
                                 $arity => Rel::[<Collection $arity>](
-                                    self.[<rel_ $arity>]().threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+                                    self.[<rel_ $arity>]().threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
                                 ),
                             )*
                             _ => unreachable!("threshold: arity {} should be handled by fixed-size variants", self.arity()),
