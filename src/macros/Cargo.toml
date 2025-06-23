@@ -3,14 +3,19 @@ name = "macros"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["present-type"]
+present-type = ["reading/present-type"]
+isize-type = ["reading/isize-type"]
+
 [dependencies]
-reading = { path = "../reading" }
+reading = { path = "../reading", default-features = false }
 
 
-syn = { version = "2.0.87", features = ["full"] }
-quote = "1.0.37"
-proc-macro2 = "1.0.89"
-itertools = "0.13.0"
+syn = { workspace = true, features = ["full"] }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+itertools = { workspace = true }
 
 
 [lib]

@@ -35,6 +35,7 @@ pub fn program_execution(
     delimiter: u8,
     strata: Strata,
     group_plans: Vec<GroupStrataQueryPlan>,
+    fat_mode: bool,
     csvs_path: String,
 ) {
     timely::execute_from_args(timely_args.into_iter(), move |worker| {
@@ -52,7 +53,7 @@ pub fn program_execution(
             /* construct dataflow rels & input session (i.e., file handles) to load the input */
             for edb in strata.program().edbs() {
                 let edb_name = edb.name();
-                let (session_generic, input_rel) = construct_session_and_table(scope, edb.arity());
+                let (session_generic, input_rel) = construct_session_and_table(scope, edb.arity(), fat_mode);
                     
                 session_map.insert(
                     edb_name.to_string(), session_generic
@@ -215,7 +216,7 @@ pub fn program_execution(
                         for (head_name, head_arity) in group_plan.heads().iter().sorted_by_key(|x| x.0) {
                             variables_map.insert(
                                 Arc::new(CollectionSignature::new_atom(head_name)), 
-                                construct_var(scope, *head_arity)
+                                construct_var(scope, *head_arity, fat_mode)
                             );
                         }
 
@@ -467,7 +468,8 @@ pub fn program_execution(
                 &delimiter, 
                 session_generic, 
                 id, 
-                peers
+                peers,
+                fat_mode
             );
         }
 

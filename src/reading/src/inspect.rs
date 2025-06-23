@@ -1,12 +1,12 @@
-//! File output and inspection utilities for differential dataflow relations
-//!
-//! This module provides functions for printing relation contents, displaying relation sizes,
-//! and writing relations to files.
-
-use differential_dataflow::difference::Present;
+/* -----------------------------------------------------------------------------------------------
+ * printing methods
+ * -----------------------------------------------------------------------------------------------
+ */
+// use differential_dataflow::difference::Abelian;
 use differential_dataflow::difference::Semigroup;
-use differential_dataflow::lattice::Lattice;
+
 use differential_dataflow::operators::threshold::ThresholdTotal;
+use differential_dataflow::lattice::Lattice;
 use differential_dataflow::{Collection, ExchangeData, Hashable};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -18,6 +18,8 @@ use timely::dataflow::Scope;
 use timely::order::TotalOrder;
 
 use crate::rel::Rel;
+use crate::semiring_one;
+use crate::Present;
 
 // Thread-local storage for file handles to avoid repeatedly opening the same files
 thread_local! {
@@ -63,7 +65,7 @@ where
         format!("Size of (non-recursive) {}", name)
     };
 
-    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|_| Some(((), 1 as i32)))
         .map(|_| ())
         .consolidate()
@@ -79,7 +81,7 @@ where
     R: Semigroup + ExchangeData,
 {
     let name = name.to_owned();
-    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|x| Some((x, 1 as i32)))
         .inspect(move |(data, time, delta)| println!("{}: ({}, {:?}, {})", name, data, time, delta));
 }
@@ -122,8 +124,6 @@ where
         6 => print(rel.rel_6(), name),
         7 => print(rel.rel_7(), name),
         8 => print(rel.rel_8(), name),
-        9 => print(rel.rel_9(), name),
-        10 => print(rel.rel_10(), name),
         _ => panic!("print_generic unimplemented for arity {}", arity),
     }
 }
@@ -134,19 +134,21 @@ where
     G: Scope,
     G::Timestamp: Lattice + TotalOrder,
 {
-    let arity = rel.arity();
-    match arity {
-        1 => printsize(rel.rel_1(), name, is_recursive),
-        2 => printsize(rel.rel_2(), name, is_recursive),
-        3 => printsize(rel.rel_3(), name, is_recursive),
-        4 => printsize(rel.rel_4(), name, is_recursive),
-        5 => printsize(rel.rel_5(), name, is_recursive),
-        6 => printsize(rel.rel_6(), name, is_recursive),
-        7 => printsize(rel.rel_7(), name, is_recursive),
-        8 => printsize(rel.rel_8(), name, is_recursive),
-        9 => printsize(rel.rel_9(), name, is_recursive),
-        10 => printsize(rel.rel_10(), name, is_recursive),
-        _ => panic!("printsize_generic unimplemented for arity {}", arity),
+    if rel.is_fat() {
+        printsize(rel.rel_fat(), name, is_recursive)
+    } else {
+        let arity = rel.arity();
+        match arity {
+            1 => printsize(rel.rel_1(), name, is_recursive),
+            2 => printsize(rel.rel_2(), name, is_recursive),
+            3 => printsize(rel.rel_3(), name, is_recursive),
+            4 => printsize(rel.rel_4(), name, is_recursive),
+            5 => printsize(rel.rel_5(), name, is_recursive),
+            6 => printsize(rel.rel_6(), name, is_recursive),
+            7 => printsize(rel.rel_7(), name, is_recursive),
+            8 => printsize(rel.rel_8(), name, is_recursive),
+            _ => unreachable!("arity {} should be handled by fixed-size variants", arity),
+        }
     }
 }
 
@@ -156,19 +158,21 @@ where
     G: Scope,
     G::Timestamp: Lattice + TotalOrder,
 {
-    let arity = rel.arity();
-    match arity {
-        1 => write_to_file(rel.rel_1(), name, file_path, worker_id),
-        2 => write_to_file(rel.rel_2(), name, file_path, worker_id),
-        3 => write_to_file(rel.rel_3(), name, file_path, worker_id),
-        4 => write_to_file(rel.rel_4(), name, file_path, worker_id),
-        5 => write_to_file(rel.rel_5(), name, file_path, worker_id),
-        6 => write_to_file(rel.rel_6(), name, file_path, worker_id),
-        7 => write_to_file(rel.rel_7(), name, file_path, worker_id),
-        8 => write_to_file(rel.rel_8(), name, file_path, worker_id),
-        9 => write_to_file(rel.rel_9(), name, file_path, worker_id),
-        10 => write_to_file(rel.rel_10(), name, file_path, worker_id),
-        _ => panic!("write_relation_to_file unimplemented for arity {}", arity),
+    if rel.is_fat() {
+        write_to_file(rel.rel_fat(), name, file_path, worker_id)
+    } else {
+        let arity = rel.arity();
+        match arity {
+            1 => write_to_file(rel.rel_1(), name, file_path, worker_id),
+            2 => write_to_file(rel.rel_2(), name, file_path, worker_id),
+            3 => write_to_file(rel.rel_3(), name, file_path, worker_id),
+            4 => write_to_file(rel.rel_4(), name, file_path, worker_id),
+            5 => write_to_file(rel.rel_5(), name, file_path, worker_id),
+            6 => write_to_file(rel.rel_6(), name, file_path, worker_id),
+            7 => write_to_file(rel.rel_7(), name, file_path, worker_id),
+            8 => write_to_file(rel.rel_8(), name, file_path, worker_id),
+            _ => unreachable!("arity {} should be handled by fixed-size variants", arity),
+        }
     }
 }
 

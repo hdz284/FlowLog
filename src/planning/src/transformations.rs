@@ -340,48 +340,48 @@ impl fmt::Display for Transformation {
                 write!(
                     f,
                     "{} {}",
-                    if *is_no_op { "[nop]" } else { "[row]" }, output.pprint(),
+                    if *is_no_op { "∅" } else { "→" }, output.pprint(),
                 )
             }
             Self::RowToK { output, is_no_op, .. } => {
                 write!(
                     f,
                     "{} {}",
-                    if *is_no_op { "[nop]" } else { "[kv]" }, output.pprint(),
+                    if *is_no_op { "∅" } else { "⟶" }, output.pprint(),
                 )
             }
             Self::RowToKv { output, .. } => {
                 write!(
                     f,
-                    "[kv] {}",
+                    "⟶ {}",
                     output.pprint(),
                 )
             }
             Self::KvToKv { output, .. } | Self::KvToK { output, .. } => {
                 write!(
                     f,
-                    "[kv] {}",
+                    "⟶ {}",
                     output.pprint(),
                 )
             }
             Self::JnKK { output, .. } | Self::JnKKv { output, .. } | Self::JnKvK { output, .. } | Self::JnKvKv { output, .. } => {
                 write!(
                     f,
-                    "[jn] {}", // "[jn]: {} ── {} ⋈ {}",
+                    "⋈ {}", // bowtie for join
                     output.pprint(),
                 )
             }
             Self::Cartesian { output, .. } => {
                 write!(
                     f,
-                    "[⨯] {}", 
+                    "⨯ {}", 
                     output.pprint(),
                 )
             }
             Self::NjKvK { output, .. } | Self::NjKK { output, .. } => {
                 write!(
                     f,
-                    "[aj] {}", // "[aj]: {} ── {} ⋉ ¬{} ",
+                    "¬ {}", // negation symbol for antijoin
                     output.pprint(),
                 )
             }

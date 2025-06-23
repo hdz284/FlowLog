@@ -5,30 +5,42 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# Release build with isize semiring
+# cargo build --release --features isize-type --no-default-features
+
+# Release build with Present semiring (default)
+# cargo build --release
+
+# Release build with Present semiring (explicit)
+# cargo build --release --features present-type --no-default-features
+
+[features]
+default = ["present-type"]
+present-type = ["reading/present-type", "macros/present-type"]
+isize-type = ["reading/isize-type", "macros/isize-type"]
+
 [dependencies]
 debugging = { path = "../debugging" }  
 parsing = { path = "../parsing" }  
 strata = { path = "../strata" }  
 catalog = { path = "../catalog" }  
 planning = { path = "../planning" }
-reading = { path = "../reading" }
-macros = { path = "../macros" }
+reading = { path = "../reading", default-features = false }
+macros = { path = "../macros", default-features = false }
 
 
-clap = { version = "4.5.20", features = ["derive"] }
-itertools = "0.14.0"
+clap = { workspace = true, features = ["derive"] }
+itertools = { workspace = true }
 
-# timely = "0.19.0"
-# differential-dataflow = "0.13.7"
-timely = "0.20.0"
-differential-dataflow = "0.14.2"
+timely = { workspace = true }
+differential-dataflow = { workspace = true }
 
 # timely = "0.12.0"
 # differential-dataflow = { path = "/Users/hangdong/.cargo/registry/src/index.crates.io-6f17d22bba15001f/differential-dataflow-0.12.0" }
 # differential-dataflow = "0.13.1"
 # differential-dataflow = { path = "/users/hangdong/differential" }
-arrayvec = "0.7.6"
-mimalloc = { version = "*" }
+arrayvec = { workspace = true }
+mimalloc = { workspace = true }
 
 
 

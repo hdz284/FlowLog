@@ -23,7 +23,8 @@ impl GroupStrataQueryPlan {
     pub fn new(
         is_recursive: bool, 
         rule_plans: Vec<RuleQueryPlan>, 
-        seen_set: &mut HashSet<Arc<CollectionSignature>>
+        seen_set: &mut HashSet<Arc<CollectionSignature>>,
+        disable_sharing: bool
     ) -> Self {
         let rules = rule_plans
             .iter()
@@ -49,9 +50,9 @@ impl GroupStrataQueryPlan {
             let (root, transformation_tree) = rule_plan.rule_plan();
 
             if !is_recursive {
-                strata_plan.push(Self::construct_non_recursive(seen_set, root, &transformation_tree));
+                strata_plan.push(Self::construct_non_recursive(seen_set, root, &transformation_tree, disable_sharing));
             } else {
-                let (rule_plan, rule_enter_scope) = Self::construct_recursive(seen_set, &mut nested_seen, root, &transformation_tree);
+                let (rule_plan, rule_enter_scope) = Self::construct_recursive(seen_set, &mut nested_seen, root, &transformation_tree, disable_sharing);
                 strata_plan.push(rule_plan);
                 enter_scope.extend(rule_enter_scope);
             }      
@@ -69,24 +70,29 @@ impl GroupStrataQueryPlan {
     fn construct_non_recursive(
         seen: &mut HashSet<Arc<CollectionSignature>>,
         root: &Transformation,
-        transformation_tree: &HashMap<Transformation, (Transformation, Transformation)>
+        transformation_tree: &HashMap<Transformation, (Transformation, Transformation)>,
+        disable_sharing: bool
     ) -> Vec<Transformation>     
     {
         let output_signature = root.output().signature();
     
-        // base case (already seen)
-        if seen.contains(output_signature) { return vec![]; }
+        // base case (already seen) - skip if sharing is disabled
+        if !disable_sharing && seen.contains(output_signature) { 
+            return vec![]; 
+        }
 
-        // mark as seen
-        seen.insert(Arc::clone(output_signature));
+        // mark as seen only if sharing is enabled
+        if !disable_sharing {
+            seen.insert(Arc::clone(output_signature));
+        }
 
         transformation_tree.get(root).map_or_else(
             || vec![root.clone()], // leaf op
             |(l_root, r_root)| {
                 // recursive case
                 let mut plan = Vec::new();
-                plan.extend(Self::construct_non_recursive(seen, l_root, transformation_tree));
-                plan.extend(Self::construct_non_recursive(seen, r_root, transformation_tree));
+                plan.extend(Self::construct_non_recursive(seen, l_root, transformation_tree, disable_sharing));
+                plan.extend(Self::construct_non_recursive(seen, r_root, transformation_tree, disable_sharing));
                 plan.push(root.clone());
                 plan
             }
@@ -97,26 +103,29 @@ impl GroupStrataQueryPlan {
         seen: &mut HashSet<Arc<CollectionSignature>>,
         nested_seen: &mut HashSet<Arc<CollectionSignature>>,
         root: &Transformation,
-        transformation_tree: &HashMap<Transformation, (Transformation, Transformation)>
+        transformation_tree: &HashMap<Transformation, (Transformation, Transformation)>,
+        disable_sharing: bool
     ) -> (Vec<Transformation>, HashSet<Arc<CollectionSignature>>)  
     {
         let output_signature = root.output().signature();
     
-        // base case (already seen)
-        if seen.contains(output_signature) {
+        // base case (already seen) - skip if sharing is disabled
+        if !disable_sharing && seen.contains(output_signature) {
             // it can't be the that global scope has an intermediate rel that is produced by some recursive idb of this strata (we can safely reuse it)
             // println!("borrow {} from global", output_signature);
             return (vec![], HashSet::from([Arc::clone(&output_signature)]));
         }
 
-        // base case (already nested_seen)
-        if nested_seen.contains(output_signature) {
+        // base case (already nested_seen) - skip if sharing is disabled
+        if !disable_sharing && nested_seen.contains(output_signature) {
             // println!("borrow {} from nested", output_signature);
             return (vec![], HashSet::new());
         }
 
-        // mark as nested_seen
-        nested_seen.insert(Arc::clone(output_signature));
+        // mark as nested_seen only if sharing is enabled
+        if !disable_sharing {
+            nested_seen.insert(Arc::clone(output_signature));
+        }
 
         transformation_tree.get(root).map_or_else(
             // base case (enter base atom into scope at a leaf op)
@@ -124,8 +133,8 @@ impl GroupStrataQueryPlan {
             || (vec![root.clone()], HashSet::from([Arc::clone(root.unary().signature())])),  
             |(l_root, r_root)| {
                 // recursive case
-                let (l_plan, l_enter_scope) = Self::construct_recursive(seen, nested_seen, l_root, transformation_tree);
-                let (r_plan, r_enter_scope) = Self::construct_recursive(seen, nested_seen, r_root, transformation_tree);
+                let (l_plan, l_enter_scope) = Self::construct_recursive(seen, nested_seen, l_root, transformation_tree, disable_sharing);
+                let (r_plan, r_enter_scope) = Self::construct_recursive(seen, nested_seen, r_root, transformation_tree, disable_sharing);
 
                 (
                     l_plan.into_iter()

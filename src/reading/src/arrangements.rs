@@ -9,10 +9,12 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::Data;
 
 use crate::Semiring;
+use crate::semiring_one;
 use crate::row::Row;
 use crate::rel::Rel;
+use crate::row::FatRow;
 
-use differential_dataflow::difference::Present;
+
 use differential_dataflow::trace::implementations::Vector;
 use differential_dataflow::trace::implementations::ord_neu::OrdValBatch;
 use differential_dataflow::trace::implementations::spine_fueled::Spine;
@@ -29,6 +31,12 @@ pub type DictTrace<const K: usize, const V: usize, T, R> = TraceAgent<Spine<Rc< 
 
 pub type ArrangedDictType<const K: usize, const V: usize, G, R> = Arranged<G, DictTrace<K, V, <G as ScopeParent>::Timestamp, R>>;
 
+// Fat row arrangements for fallback
+pub type BatchDictFat<T, R> = ((FatRow, FatRow), T, R);
+pub type VectorBatchDictFat<T, R> = Vector<BatchDictFat<T, R>>;
+pub type DictTraceFat<T, R> = TraceAgent<Spine<Rc<OrdValBatch<VectorBatchDictFat<T, R>>>>>;
+pub type ArrangedDictTypeFat<G, R> = Arranged<G, DictTraceFat<<G as ScopeParent>::Timestamp, R>>;
+
 macro_rules! impl_dicts {
     ($(($K:literal, $V:literal)),*) => {
         paste! {
@@ -40,6 +48,8 @@ macro_rules! impl_dicts {
                 $(
                     [<ArrangedDict $K _ $V>](ArrangedDictType<$K, $V, G, Semiring>),
                 )*
+                // Fallback for large arities using FatRow
+                ArrangedDictFat(ArrangedDictTypeFat<G, Semiring>, usize, usize), // Store K and V arities
             }
 
             impl<G: Scope> ArrangedDict<G>
@@ -49,7 +59,18 @@ macro_rules! impl_dicts {
                 pub fn arity(&self) -> (usize, usize) {
                     match self {
                         $( ArrangedDict::[<ArrangedDict $K _ $V>](_) => ($K, $V), )*
+                        ArrangedDict::ArrangedDictFat(_, k, v) => (*k, *v),
                     }
+                }
+
+                /// Check if this ArrangedDict uses FatRow (heap-allocated)
+                pub fn is_fat(&self) -> bool {
+                    matches!(self, ArrangedDict::ArrangedDictFat(_, _, _))
+                }
+
+                /// Check if this ArrangedDict uses fixed-size Row<N> (stack-allocated)
+                pub fn is_thin(&self) -> bool {
+                    !self.is_fat()
                 }
             }
 
@@ -65,6 +86,13 @@ macro_rules! impl_dicts {
                         }
                     }
                 )*
+
+                pub fn dict_fat(&self) -> &ArrangedDictTypeFat<G, Semiring> {
+                    match self {
+                        ArrangedDict::ArrangedDictFat(dict, _, _) => dict,
+                        _ => panic!("Cannot access fat dict on fixed-arity arrangement"),
+                    }
+                }
             }  
         }
     };
@@ -103,6 +131,11 @@ pub type VectorBatchSet<const K: usize, T, R> = Vector<BatchSet<K, T, R>>;
 pub type SetTrace<const K: usize, T, R> = TraceAgent<Spine<Rc< OrdKeyBatch<VectorBatchSet<K, T, R>> >>>;
 pub type ArrangedSetType<const K: usize, G, R> = Arranged<G, SetTrace<K, <G as ScopeParent>::Timestamp, R>>;
 
+// Fat row set arrangements for fallback
+pub type BatchSetFat<T, R> = ((FatRow, ()), T, R);
+pub type VectorBatchSetFat<T, R> = Vector<BatchSetFat<T, R>>;
+pub type SetTraceFat<T, R> = TraceAgent<Spine<Rc<OrdKeyBatch<VectorBatchSetFat<T, R>>>>>;
+pub type ArrangedSetTypeFat<G, R> = Arranged<G, SetTraceFat<<G as ScopeParent>::Timestamp, R>>;
 
 macro_rules! impl_sets {
     ($($K:literal),*) => {
@@ -113,6 +146,8 @@ macro_rules! impl_sets {
                 G::Timestamp: Data+Lattice+TotalOrder,
             {
                 $( [<ArrangedSet $K>](ArrangedSetType<$K, G, Semiring>), )*
+                // Fallback for large arities using FatRow
+                ArrangedSetFat(ArrangedSetTypeFat<G, Semiring>, usize), // Store K arity
             }
 
             impl<G: Scope> ArrangedSet<G>
@@ -123,15 +158,36 @@ macro_rules! impl_sets {
                 pub fn arity(&self) -> usize {
                     match self {
                         $( ArrangedSet::[<ArrangedSet $K>](_) => $K, )*
+                        ArrangedSet::ArrangedSetFat(_, k) => *k,
                     }
                 }
 
+                /// Check if this ArrangedSet uses FatRow (heap-allocated)
+                pub fn is_fat(&self) -> bool {
+                    matches!(self, ArrangedSet::ArrangedSetFat(_, _))
+                }
+
+                /// Check if this ArrangedSet uses fixed-size Row<N> (stack-allocated)
+                pub fn is_thin(&self) -> bool {
+                    !self.is_fat()
+                }
+
                 pub fn threshold(&self) -> Rel<G> {
-                    match self {
-                        $( ArrangedSet::[<ArrangedSet $K>](set) => Rel::[<Collection $K>](
-                            set.threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
-                            ),
-                        )*
+                    if self.is_fat() {
+                        // FatRow case
+                        Rel::CollectionFat(
+                            self.set_fat().threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one())),
+                            self.arity()
+                        )
+                    } else {
+                        // Fixed-size Row<N> case
+                        match self {
+                            $( ArrangedSet::[<ArrangedSet $K>](set) => Rel::[<Collection $K>](
+                                set.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
+                                ),
+                            )*
+                            ArrangedSet::ArrangedSetFat(_, _) => unreachable!("Fat case should be handled elsewhere"),
+                        }
                     }
                 }
             }
@@ -149,10 +205,17 @@ macro_rules! impl_sets {
                         }
                     }
                 )*
+
+                pub fn set_fat(&self) -> &ArrangedSetTypeFat<G, Semiring> {
+                    match self {
+                        ArrangedSet::ArrangedSetFat(set, _) => set,
+                        _ => panic!("Cannot access fat set on fixed-arity arrangement"),
+                    }
+                }
             }
         }
     };
 }
 
 
-impl_sets!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+impl_sets!(1, 2, 3, 4, 5, 6, 7, 8);

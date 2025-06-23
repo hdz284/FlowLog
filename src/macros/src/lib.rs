@@ -4,9 +4,8 @@ use itertools::iproduct;
 use syn::Ident;
 use proc_macro2::Span;
 
-const KV_MAX: usize = 2;
-const ROW_MAX: usize = 2;
-const PROD_MAX: usize = 2;
+// Import centralized configuration constants
+use reading::config::{KV_MAX, ROW_MAX, PROD_MAX};
 
 /* ------------------------------------------------------------------------ */
 /* codegen for maps */
@@ -27,9 +26,16 @@ pub fn codegen_row_row(_: TokenStream) -> TokenStream {
     }
 
     let expanded = quote! {
-        match (iv, target) {
-            #(#arms),*,
-            _ => panic!("codegen_row_row unimplemented for {}, {}", iv, target),
+        if input_rel.is_fat() {
+            CollectionFat(
+                input_rel.rel_fat().flat_map(row_row_fat(flow)),
+                target
+            )
+        } else {
+            match (iv, target) {
+                #(#arms),*,
+                _ => panic!("codegen_row_row unimplemented for {}, {}", iv, target),
+            }
         }
     };
 
@@ -56,9 +62,17 @@ pub fn codegen_row_kv(_: TokenStream) -> TokenStream {
     }
 
     let expanded = quote! {
-        match (iv, ok, ov) {
-            #(#arms),*,
-            _ => panic!("codegen_row_kv unimplemented for {}, {}, {}", iv, ok, ov),
+        if input_rel.is_fat() {
+            DoubleRelFat(
+                input_rel.rel_fat().flat_map(row_kv_fat(flow)),
+                ok, // key arity
+                ov  // value arity
+            )
+        } else {
+            match (iv, ok, ov) {
+                #(#arms),*,
+                _ => panic!("codegen_row_kv unimplemented for {}, {}, {}", iv, ok, ov),
+            }
         }
     };
 
@@ -95,9 +109,20 @@ pub fn codegen_jn(_: TokenStream) -> TokenStream {
     }
 
     let expanded = quote! {
-        match (ik0, iv0, iv1, target) {
-            #(#arms),*,
-            _ => panic!("codegen_jn unimplemented for {}, {}, {}, {}", ik0, iv0, iv1, target),
+        if dict_0.is_fat() && dict_1.is_fat() {
+            CollectionFat(
+                dict_0.dict_fat()
+                    .join_core(
+                        dict_1.dict_fat(), 
+                        jn_logic_fat(flow)
+                    ),
+                target
+            )
+        } else {
+            match (ik0, iv0, iv1, target) {
+                #(#arms),*,
+                _ => panic!("codegen_jn unimplemented for {}, {}, {}, {}", ik0, iv0, iv1, target),
+            }
         }
     };
 
@@ -133,9 +158,24 @@ pub fn codegen_cartesian(_: TokenStream) -> TokenStream {
     }
 
     let expanded = quote! {
-        match (iv0, iv1, target) {
-            #(#arms),*,
-            _ => panic!("codegen_cartesian unimplemented for {}, {}, {}", iv0, iv1, target),
+        if rel_0.is_fat() && rel_1.is_fat() {
+            CollectionFat(
+                rel_0.rel_fat()
+                     .map(|x| ((), x))
+                     .arrange_by_key()
+                     .join_core(
+                        &rel_1.rel_fat()
+                              .map(|x| ((), x))
+                              .arrange_by_key(),
+                            cartesian_logic_fat(flow)
+                     ),
+                target
+            )
+        } else {
+            match (iv0, iv1, target) {
+                #(#arms),*,
+                _ => panic!("codegen_cartesian unimplemented for {}, {}, {}", iv0, iv1, target),
+            }
         }
     };
 
@@ -170,9 +210,20 @@ pub fn codegen_kv_k_jn(_: TokenStream) -> TokenStream {
     }
     
     let expanded = quote! {
-        match (ik0, iv0, target) {
-            #(#arms),*,
-            _ => panic!("cpdegen_kv_k_jn unimplemented for {}, {}, {}", ik0, iv0, target),
+        if dict_0.is_fat() && set_1.is_fat() {
+            CollectionFat(
+                dict_0.dict_fat()
+                    .join_core(
+                        set_1.set_fat(),
+                        v1_jn_logic_fat(flow)
+                    ),
+                target
+            )
+        } else {
+            match (ik0, iv0, target) {
+                #(#arms),*,
+                _ => panic!("cpdegen_kv_k_jn unimplemented for {}, {}, {}", ik0, iv0, target),
+            }
         }
     };
 
@@ -206,9 +257,20 @@ pub fn codegen_k_k_jn(_: TokenStream) -> TokenStream {
     }
 
     let expanded = quote! {
-        match (ik0, target) {
-            #(#arms),*,
-            _ => panic!("codegen_k_k_jn unimplemented for {}, {}", ik0, target),
+        if set_0.is_fat() && set_1.is_fat() {
+            CollectionFat(
+                set_0.set_fat()
+                    .join_core(
+                        set_1.set_fat(),
+                        v2_jn_logic_fat(flow)
+                    ),
+                target
+            )
+        } else {
+            match (ik0, target) {
+                #(#arms),*,
+                _ => panic!("codegen_k_k_jn unimplemented for {}, {}", ik0, target),
+            }
         }
     };
 
@@ -240,9 +302,16 @@ pub fn codegen_kv_flatten(_: TokenStream) -> TokenStream {
     }
     
     let expanded = quote! {
-        match (ik0, iv0, target) {
-            #(#arms),*,
-            _ => panic!("codegen_kv_flatten unimplemented for {}, {}, {}", ik0, iv0, target),
+        if dict_0.is_fat() {
+            CollectionFat(
+                dict_0.dict_fat().as_collection(aj_flatten_fat(flow)),
+                target
+            )
+        } else {
+            match (ik0, iv0, target) {
+                #(#arms),*,
+                _ => panic!("codegen_kv_flatten unimplemented for {}, {}, {}", ik0, iv0, target),
+            }
         }
     };
 
@@ -269,9 +338,16 @@ pub fn codegen_k_flatten(_: TokenStream) -> TokenStream {
     }
 
     let expanded = quote! {
-        match (ik0, target) {
-            #(#arms),*,
-            _ => panic!("codegen_k_flatten unimplemented for {}, {}", ik0, target),
+        if set_0.is_fat() {
+            CollectionFat(
+                set_0.set_fat().as_collection(v1_aj_flatten_fat(flow)),
+                target
+            )
+        } else {
+            match (ik0, target) {
+                #(#arms),*,
+                _ => panic!("codegen_k_flatten unimplemented for {}, {}", ik0, target),
+            }
         }
     };
 

@@ -1,6 +1,9 @@
 .in 
 .decl assign(src: number, dest: number)
+.input assign.csv
 .decl dereference(src: number, dest: number)
+.input dereference.csv
+
 
 .printsize
 .decl valueFlow(src: number, dest: number)
@@ -18,7 +21,7 @@ memoryAlias(x, w) :- dereference(y, x), valueAlias(y, z), dereference(z, w).
 valueAlias(x, y) :- valueFlow(z, x), valueFlow(z, y).
 valueAlias(x, y) :- valueFlow(z, x), memoryAlias(z, w), valueFlow(w, y).
 
-valueFlow(x, y) :- assign(x, y), x % 2 = 1 ~ y.
+valueFlow(x, y) :- assign(x, y).
 valueFlow(x, x) :- assign(y, x).
 memoryAlias(x, x) :- assign(y, x).
 memoryAlias(x, x) :- assign(x, y).
@@ -26,3 +29,4 @@ memoryAlias(x, x) :- assign(x, y).
 
 
 # ./target/release/executing -p ./examples/programs/pointsto.dl -f /Users/hangdong/Desktop/benchmarks/benchmarks/pointsto/facts -c ./examples/csvs -d $'\t'
+

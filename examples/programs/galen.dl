@@ -14,7 +14,6 @@
 # .input s(IO="file", filename="s.txt", delimiter=",")
 
 .printsize
-.decl puHelp(X: number, Y: number, Z: number)
 .decl p(X: number, Z: number)
 .decl q(X: number, Y: number, Z: number)
 
@@ -26,9 +25,6 @@ p(x, z) :- p(x, y), p(y, z).
 q(x, r, z) :- p(x, y), q(y, r, z).
 
 p(x, z) :- q(x, r, y), p(y, w), u(w, r, z).
-#puHelp(y, r, z) :- p(y, w), u(w, r, z).
-#p(x, z) :- q(x, r, y), puHelp(y, r, z).
-
 
 p(x, z) :- p(x, y), c(y, w, z), p(x, w).
 q(x, q, z) :- q(x, r, z), s(r, q).

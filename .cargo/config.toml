@@ -1,0 +1,3 @@
+[build]
+# Use all available CPU cores for parallel compilation
+jobs = 128
