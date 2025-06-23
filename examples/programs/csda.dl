@@ -1,8 +1,8 @@
 .in 
 .decl Edge(src: number, dest: number) 
-.input edge.csv
+.input arc.facts
 .decl NullEdge(src: number, dest: number) 
-.input nullEdge.csv
+.input arc.facts
 
 .printsize 
 .decl tc(src: number, dest: number)

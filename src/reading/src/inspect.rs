@@ -19,7 +19,6 @@ use timely::order::TotalOrder;
 
 use crate::rel::Rel;
 use crate::semiring_one;
-use crate::Present;
 
 // Thread-local storage for file handles to avoid repeatedly opening the same files
 thread_local! {
@@ -100,7 +99,7 @@ where
 
     println!("Writing relation {} to file {}", name, path);
 
-    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(Present {}))
+    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|x| Some((x, 1 as i32)))
         .inspect(move |(data, _time, _delta)| {
             let mut file = file_handle.lock().unwrap();

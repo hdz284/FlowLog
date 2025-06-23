@@ -185,15 +185,6 @@ pub fn program_execution(
                             if let Some(rel) = row_map.get(signature) {
                                 // Print relation with formatted name
                                 printsize_generic(rel, &format!("[{}]", rel_name), false);
-                       
-                                let full_path = format!("{}/{}", csvs_path, rel_name);
-                                write_relation_to_file(
-                                    rel,
-                                    &format!("[{}]", rel_name),
-                                    &full_path,
-                                    id,
-                                );
-                                
                             }
                         }
                     }
@@ -495,8 +486,7 @@ pub fn program_execution(
 
             for relation in strata.program().idbs() {
                 let full_path = format!("{}/{}", csvs_path, relation.name());
-                merge_relation_partitions(&full_path, peers);
-                
+                merge_relation_partitions(&full_path, peers); 
             }
         }
     }).expect("execute_from_args dies");
