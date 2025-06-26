@@ -101,9 +101,10 @@ where
 
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|x| Some((x, 1 as i32)))
-        .inspect(move |(data, _time, _delta)| {
+        .inspect_batch(move |_batch_time, rows| {
             let mut file = file_handle.lock().unwrap();
-            writeln!(file, "{}", data).expect(&format!("Failed to write to file: {}", path));
+            let batch_str = rows.iter().map(|(data, _, _)| format!("{}", data)).collect::<Vec<_>>().join("\n");
+            writeln!(file, "{}", batch_str).expect(&format!("Failed to write to file: {}", path));
         });
 }
 

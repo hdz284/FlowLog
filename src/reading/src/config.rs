@@ -4,7 +4,7 @@
 //! for various operations in the FlowLog engine.
 
 /// Maximum arity before falling back to dynamic (fat) representations
-pub const FALLBACK_ARITY: usize = 8;
+pub const FALLBACK_ARITY: usize = KV_MAX;
 
 /// Maximum arity for key-value in code generation
 pub const KV_MAX: usize = 2;
