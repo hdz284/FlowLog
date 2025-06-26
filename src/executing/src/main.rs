@@ -81,14 +81,10 @@ fn main() {
     
     /* (4) executing (dataflow) */
     program_execution(
-        args.verbose(),
-        args.timely_args(),
-        args.facts(),
-        args.delimiter().as_bytes()[0],
+        args,
         strata,
         program_query_plan.program_plan().to_owned(),
         use_fat_mode,
-        args.csvs()
     );
 
     println!("success query");

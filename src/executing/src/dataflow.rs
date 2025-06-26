@@ -10,6 +10,7 @@ use strata::stratification::Strata;
 use planning::strata::GroupStrataQueryPlan;
 use planning::transformations::Transformation;
 use planning::collections::CollectionSignature;
+use crate::arg::Args;
 use crate::dataflow::timely::dataflow::Scope;
 use crate::collector::non_recursive_collector;
 use crate::collector::recursive_collector;
@@ -29,16 +30,12 @@ use reading::inspect::*;
 
 
 pub fn program_execution(
-    verbose: bool,
-    timely_args: Vec<String>,
-    facts_path: String,
-    delimiter: u8,
+    args: Args,
     strata: Strata,
     group_plans: Vec<GroupStrataQueryPlan>,
     fat_mode: bool,
-    csvs_path: String,
 ) {
-    timely::execute_from_args(timely_args.into_iter(), move |worker| {
+    timely::execute_from_args(args.timely_args().into_iter(), move |worker| {
         let timer = ::std::time::Instant::now();
         let peers = worker.peers();
         let id = worker.index(); 
@@ -65,7 +62,7 @@ pub fn program_execution(
             }
 
             /* inspect edbs (optional) */
-            if verbose {
+            if args.verbose() {
                 for (signature, rel) in row_map
                     .iter()
                     .sorted_by_key(|(signature, _)| signature.name()) { printsize_generic(rel, &format!("[{}]", signature.name()), false); }
@@ -190,7 +187,7 @@ pub fn program_execution(
                     }
     
                     /* inspect idbs of the non-recursive strata (optional) */
-                    if verbose {
+                    if args.verbose() {
                         inspector(
                             &group_plan.head_signatures_set(), 
                             &mut row_map,
@@ -377,7 +374,7 @@ pub fn program_execution(
                         );
 
                         /* inspect idbs of the recursive strata (optional) */
-                        if verbose {
+                        if args.verbose() {
                             inspector(
                                 &head_signatures_set, 
                                 &mut variables_next_map,
@@ -418,8 +415,10 @@ pub fn program_execution(
                         printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
 
                         // Write to file 
-                        let full_path = format!("{}/{}", csvs_path, rel_name);
-                        write_relation_to_file(&recursive_rel, rel_name, &full_path, id);
+                        if !args.evaluation_only() {
+                            let full_path = format!("{}/{}", args.csvs(), rel_name);
+                            write_relation_to_file(&recursive_rel, rel_name, &full_path, id);
+                        }
                         
                         // if the rel is in the row_map, it will be overwritten
                         row_map.insert(
@@ -444,9 +443,9 @@ pub fn program_execution(
             let rel_name = rel_decl.name();
             let rel_path =     
                 if let Some(path) = rel_decl.path() {
-                    format!("{}/{}", facts_path, path)
+                    format!("{}/{}", args.facts(), path)
                 } else {
-                    format!("{}/{}.facts", facts_path, rel_name)
+                    format!("{}/{}.facts", args.facts(), rel_name)
                 };
                 
             let session_generic = session_map
@@ -456,7 +455,7 @@ pub fn program_execution(
             read_row_generic(
                 rel_decl, 
                 &rel_path, 
-                &delimiter, 
+                &args.delimiter().as_bytes()[0], 
                 session_generic, 
                 id, 
                 peers,
@@ -481,11 +480,11 @@ pub fn program_execution(
             // spinning
         }
 
-        if id == 0 {
+        if id == 0 && !args.evaluation_only() {
             println!("{:?}:\tFixpoint reached", timer.elapsed());
 
             for relation in strata.program().idbs() {
-                let full_path = format!("{}/{}", csvs_path, relation.name());
+                let full_path = format!("{}/{}", args.csvs(), relation.name());
                 merge_relation_partitions(&full_path, peers); 
             }
         }

@@ -16,8 +16,8 @@ pub struct Args {
     csvs: String,
 
     /// evaluate w/o spilling the output
-    // #[arg(short, long)]
-    // evaluation_only: bool,
+    #[arg(short, long)]
+    evaluation_only: bool,
 
     #[arg(short, long, default_value_t = false)]
     verbose: bool,
@@ -57,9 +57,9 @@ impl Args {
         self.verbose
     }
 
-    // pub fn evaluation_only(&self) -> bool {
-    //     self.evaluation_only
-    // }
+    pub fn evaluation_only(&self) -> bool {
+        self.evaluation_only
+    }
 
     pub fn delimiter(&self) -> &String {
         &self.delimiter
