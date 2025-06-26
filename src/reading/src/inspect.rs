@@ -188,23 +188,30 @@ where
 pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
     let file_handle = get_file_handle(&output_path);
 
-    // Read and concatenate all worker files
+    // Read and concatenate all existing worker files
     let merged_content = (0..worker_count)
-        .map(|worker_id| {
+        .filter_map(|worker_id| {
             let part_path = format!("{}{}", output_path, worker_id);
-            read_to_string(&part_path).unwrap_or_else(|_| panic!("Failed to read {}", part_path))
+            match read_to_string(&part_path) {
+                Ok(content) => Some(content),
+                Err(_) => {
+                    eprintln!("Warning: missing or unreadable file {}", part_path);
+                    None
+                }
+            }
         })
         .collect::<Vec<_>>()
         .join("");
 
     let mut file = file_handle.lock().unwrap();
-    file.write_all(merged_content.as_bytes())
-        .unwrap_or_else(|_| panic!("Failed to write merged file: {}", output_path));
+    if let Err(e) = file.write_all(merged_content.as_bytes()) {
+        eprintln!("Failed to write merged file {}: {}", output_path, e);
+    }
 
-    // Optionally clean up partial files
+    // Attempt to remove all partial files, ignore failure
     for worker_id in 0..worker_count {
         let part_path = format!("{}{}", output_path, worker_id);
-        remove_file(&part_path).unwrap_or_else(|_| panic!("Failed to remove {}", part_path));
+        let _ = remove_file(&part_path);
     }
 }
 
