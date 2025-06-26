@@ -415,7 +415,7 @@ pub fn program_execution(
                         printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
 
                         // Write to file 
-                        if !args.evaluation_only() {
+                        if args.output_result() {
                             let full_path = format!("{}/{}", args.csvs(), rel_name);
                             write_relation_to_file(&recursive_rel, rel_name, &full_path, id);
                         }
@@ -480,7 +480,7 @@ pub fn program_execution(
             // spinning
         }
 
-        if id == 0 && !args.evaluation_only() {
+        if id == 0 && args.output_result() {
             println!("{:?}:\tFixpoint reached", timer.elapsed());
 
             for relation in strata.program().idbs() {
