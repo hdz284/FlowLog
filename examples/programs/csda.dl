@@ -1,14 +1,12 @@
 .in 
 .decl Edge(src: number, dest: number) 
-.input edge.csv
+.input Edge.facts
 .decl NullEdge(src: number, dest: number) 
-.input nullEdge.csv
+.input NullEdge.facts
 
 .printsize 
-.decl tc(src: number, dest: number) 
-
+.decl tc(src: number, dest: number)
 
 .rule
-
 tc(x, y) :- NullEdge(x, y).
 tc(x, z) :- tc(x, y), Edge(y, z).

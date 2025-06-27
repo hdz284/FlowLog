@@ -10,6 +10,7 @@ use strata::stratification::Strata;
 use planning::strata::GroupStrataQueryPlan;
 use planning::transformations::Transformation;
 use planning::collections::CollectionSignature;
+use crate::arg::Args;
 use crate::dataflow::timely::dataflow::Scope;
 use crate::collector::non_recursive_collector;
 use crate::collector::recursive_collector;
@@ -29,15 +30,12 @@ use reading::inspect::*;
 
 
 pub fn program_execution(
-    verbose: bool,
-    timely_args: Vec<String>,
-    facts_path: String,
-    delimiter: u8,
+    args: Args,
     strata: Strata,
     group_plans: Vec<GroupStrataQueryPlan>,
-    fat_mode: bool
+    fat_mode: bool,
 ) {
-    timely::execute_from_args(timely_args.into_iter(), move |worker| {
+    timely::execute_from_args(args.timely_args().into_iter(), move |worker| {
         let timer = ::std::time::Instant::now();
         let peers = worker.peers();
         let id = worker.index(); 
@@ -64,7 +62,7 @@ pub fn program_execution(
             }
 
             /* inspect edbs (optional) */
-            if verbose {
+            if args.verbose() {
                 for (signature, rel) in row_map
                     .iter()
                     .sorted_by_key(|(signature, _)| signature.name()) { printsize_generic(rel, &format!("[{}]", signature.name()), false); }
@@ -174,7 +172,7 @@ pub fn program_execution(
                     );
     
                     /* inspect idbs of the non-recursive strata (optional) */
-                    if verbose {
+                    if args.verbose() {
                         inspector(
                             &group_plan.head_signatures_set(), 
                             &mut row_map,
@@ -361,7 +359,7 @@ pub fn program_execution(
                         );
 
                         /* inspect idbs of the recursive strata (optional) */
-                        if verbose {
+                        if args.verbose() {
                             inspector(
                                 &head_signatures_set, 
                                 &mut variables_next_map,
@@ -397,8 +395,15 @@ pub fn program_execution(
                         .into_iter()
                         .sorted_by_key(|(sig, _)| sig.name().to_owned())
                     {   
-                        // add a [] around name
-                        printsize_generic(&recursive_rel, &format!("[{}]", recursive_signature.name()), true);
+                        let rel_name = recursive_signature.name();
+                        // printsize the relation
+                        printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
+
+                        // write to file 
+                        if args.output_result() {
+                            let full_path = format!("{}/{}", args.csvs(), rel_name);
+                            write_relation_to_file(&recursive_rel, rel_name, &full_path, id);
+                        }
                         
                         // if the rel is in the row_map, it will be overwritten
                         row_map.insert(
@@ -423,9 +428,9 @@ pub fn program_execution(
             let rel_name = rel_decl.name();
             let rel_path =     
                 if let Some(path) = rel_decl.path() {
-                    format!("{}/{}", facts_path, path)
+                    format!("{}/{}", args.facts(), path)
                 } else {
-                    format!("{}/{}.facts", facts_path, rel_name)
+                    format!("{}/{}.facts", args.facts(), rel_name)
                 };
                 
             let session_generic = session_map
@@ -435,7 +440,7 @@ pub fn program_execution(
             read_row_generic(
                 rel_decl, 
                 &rel_path, 
-                &delimiter, 
+                &args.delimiter().as_bytes()[0], 
                 session_generic, 
                 id, 
                 peers,
@@ -462,6 +467,14 @@ pub fn program_execution(
 
         if id == 0 {
             println!("{:?}:\tFixpoint reached", timer.elapsed());
+
+            if args.output_result() {
+                for relation in strata.program().idbs() {
+                    let full_path = format!("{}/{}", args.csvs(), relation.name());
+                    merge_relation_partitions(&full_path, peers); 
+                }
+            }
+            
         }
     }).expect("execute_from_args dies");
 }
