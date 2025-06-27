@@ -3,9 +3,6 @@
 //! These constants control the compile-time code generation and runtime limits
 //! for various operations in the FlowLog engine.
 
-/// Maximum arity before falling back to dynamic (fat) representations
-pub const FALLBACK_ARITY: usize = KV_MAX;
-
 /// Maximum arity for key-value in code generation
 pub const KV_MAX: usize = 2;
 
@@ -14,6 +11,9 @@ pub const ROW_MAX: usize = 2;
 
 /// Maximum arity for product in code generation
 pub const PROD_MAX: usize = 2;
+
+/// Maximum arity before falling back to fat representations
+pub const FALLBACK_ARITY: usize = KV_MAX;
 
 /// Configuration for compile-time code generation limits
 pub struct CodegenLimits;

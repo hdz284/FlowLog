@@ -170,21 +170,6 @@ pub fn program_execution(
                         group_plan.last_signatures_map(), 
                         &mut row_map
                     );
-
-                    // Add explicit printing for output relations regardless of verbose flag
-                    for output_rel in strata.program().idbs() {
-                        let rel_name = output_rel.name();
-                        if let Some(signature) = group_plan
-                            .head_signatures_set()
-                            .iter()
-                            .find(|sig| sig.name() == rel_name)
-                        {
-                            if let Some(rel) = row_map.get(signature) {
-                                // Print relation with formatted name
-                                printsize_generic(rel, &format!("[{}]", rel_name), false);
-                            }
-                        }
-                    }
     
                     /* inspect idbs of the non-recursive strata (optional) */
                     if args.verbose() {
@@ -411,10 +396,10 @@ pub fn program_execution(
                         .sorted_by_key(|(sig, _)| sig.name().to_owned())
                     {   
                         let rel_name = recursive_signature.name();
-                        // Print the relation
+                        // printsize the relation
                         printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
 
-                        // Write to file 
+                        // write to file 
                         if args.output_result() {
                             let full_path = format!("{}/{}", args.csvs(), rel_name);
                             write_relation_to_file(&recursive_rel, rel_name, &full_path, id);
@@ -480,13 +465,16 @@ pub fn program_execution(
             // spinning
         }
 
-        if id == 0 && args.output_result() {
+        if id == 0 {
             println!("{:?}:\tFixpoint reached", timer.elapsed());
 
-            for relation in strata.program().idbs() {
-                let full_path = format!("{}/{}", args.csvs(), relation.name());
-                merge_relation_partitions(&full_path, peers); 
+            if args.output_result() {
+                for relation in strata.program().idbs() {
+                    let full_path = format!("{}/{}", args.csvs(), relation.name());
+                    merge_relation_partitions(&full_path, peers); 
+                }
             }
+            
         }
     }).expect("execute_from_args dies");
 }

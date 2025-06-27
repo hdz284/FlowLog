@@ -82,10 +82,10 @@ where
     let name = name.to_owned();
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|x| Some((x, 1 as i32)))
-        .inspect(move |(data, time, delta)| println!("{}: ({}, {:?}, {})", name, data, time, delta));
+        .inspect(move |(data, time, delta)| println!("{}: ({}, {:?}, {})", name, data, time, delta));  // use std::fmt::Display for D (i.e. Row)
 }
 
-/// Writes relation data to a file
+/// Flush relation data to a file
 fn write_to_file<G, D, R>(rel: &Collection<G, D, R>, name: &str, file_path: &str, worker_id: usize)
 where
     G: Scope,
@@ -101,11 +101,17 @@ where
 
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|x| Some((x, 1 as i32)))
-        .inspect_batch(move |_batch_time, rows| {
+        .inspect(move |(data, _time, _delta)| {
             let mut file = file_handle.lock().unwrap();
-            let batch_str = rows.iter().map(|(data, _, _)| format!("{}", data)).collect::<Vec<_>>().join("\n");
-            writeln!(file, "{}", batch_str).expect(&format!("Failed to write to file: {}", path));
+            writeln!(file, "{}", data).expect(&format!("Failed to write to file: {}", path));
         });
+
+        // alternative (faster)
+        // .inspect_batch(move |_batch_time, rows| {
+        //     let mut file = file_handle.lock().unwrap();
+        //     let batch_str = rows.iter().map(|(data, _, _)| format!("{}", data)).collect::<Vec<_>>().join("\n");
+        //     writeln!(file, "{}", batch_str).expect(&format!("Failed to write to file: {}", path));
+        // });
 }
 
 /// Prints the content of a relation with any arity
@@ -114,17 +120,21 @@ where
     G: Scope,
     G::Timestamp: Lattice + TotalOrder,
 {
-    let arity = rel.arity();
-    match arity {
-        1 => print(rel.rel_1(), name),
-        2 => print(rel.rel_2(), name),
-        3 => print(rel.rel_3(), name),
-        4 => print(rel.rel_4(), name),
-        5 => print(rel.rel_5(), name),
-        6 => print(rel.rel_6(), name),
-        7 => print(rel.rel_7(), name),
-        8 => print(rel.rel_8(), name),
-        _ => panic!("print_generic unimplemented for arity {}", arity),
+    if rel.is_fat() {
+        print(rel.rel_fat(), name)
+    } else {
+        let arity = rel.arity();
+        match arity {
+            1 => print(rel.rel_1(), name),
+            2 => print(rel.rel_2(), name),
+            3 => print(rel.rel_3(), name),
+            4 => print(rel.rel_4(), name),
+            5 => print(rel.rel_5(), name),
+            6 => print(rel.rel_6(), name),
+            7 => print(rel.rel_7(), name),
+            8 => print(rel.rel_8(), name),
+            _ => unreachable!("arity {} should be handled by fixed-size variants", arity),
+        }
     }
 }
 
@@ -204,8 +214,9 @@ pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
         .join("");
 
     let mut file = file_handle.lock().unwrap();
+    // Dump the merged content into the main output file
     if let Err(e) = file.write_all(merged_content.as_bytes()) {
-        eprintln!("Failed to write merged file {}: {}", output_path, e);
+        eprintln!("Error to write merged file {}: {}", output_path, e);
     }
 
     // Attempt to remove all partial files, ignore failure
