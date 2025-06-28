@@ -1,4 +1,4 @@
-/** parsing grammar **/
+/** Main grammar entry point **/
 main_grammar = { 
     SOI ~ 
     (
@@ -8,51 +8,74 @@ main_grammar = {
     ~ EOI
 } 
 
-/** atoms declaration **/
-edb_decl = { ".in" ~ relation_decl+ }
-idb_decl = { ".printsize" ~ relation_decl+ }
+/** Relation declarations **/
+// Input relation declarations section
+edb_decl = { ".in" ~ edb_relation_decl+ }
+// Output relation declarations section
+idb_decl = { (".printsize" | ".out") ~ idb_relation_decl+ }
 
-relation_decl = { ".decl" ~ relation_name ~ "(" ~ attributes_decl ~ ")" ~ in_decl? }         // e.g. assign(src: number, dest: number)
+// Input relation declaration - can have an optional .input directive
+edb_relation_decl = { ".decl" ~ relation_name ~ "(" ~ attributes_decl ~ ")" ~ in_decl? }
+
+// Output relation declaration - can have an optional .output directive
+idb_relation_decl = { ".decl" ~ relation_name ~ "(" ~ attributes_decl? ~ ")" ~ out_decl? }
+
+// Comma-separated list of attribute declarations
 attributes_decl = { attribute_decl ~ ("," ~ attribute_decl)* }
-attribute_decl = { attribute_name ~ ":" ~ data_type }                             // e.g. src: number 
+// Single attribute with name and data type, e.g., "src: number" 
+attribute_decl = { attribute_name ~ ":" ~ data_type }
 
-/** relation io **/
-in_decl = {  ".input" ~ in_path }
-in_path = @{ in_name ~ ("." ~ ( "facts" | "csv" | "txt" )) }
-in_name = @{ "_"? ~ ASCII_ALPHA+ ~ (ASCII_ALPHANUMERIC | "_" | "-")* }          // e.g. _Method-Modifier.facts
+/** Input/Output directives **/
+// Directive to specify the input file path for a relation
+in_decl = { ".input" ~ file_path }
+// Directive to specify the output file path for a relation
+out_decl = { ".output" ~ file_path}
 
-/** rules declaration **/
+// Path to IO file, e.g., "_Method-Modifier.facts"
+file_path = @{ file_name ~ ("." ~ ( "facts" | "csv" | "txt" )) }
+file_name = @{ "_"? ~ ASCII_ALPHA+ ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
+
+/** Rules section **/
+// Optional ".rule" keyword followed by one or more rules
 rule_decl = { (".rule")? ~ rule+ }
+// Single rule with head, body predicates, and optional optimization directive
 rule = { head ~ ":-" ~ predicates ~ "." ~ optimize? }
-predicates = { predicate ~ ("," ~ predicate)* }                                    // e.g. same generation, x != y
-predicate = { atom | neg_atom | compare_expr } 
-
+// Comma-separated list of predicates in the rule body
+predicates = { predicate ~ ("," ~ predicate)* }
+// Types of predicates allowed in rule bodies
+predicate = { atom | neg_atom | compare_expr | BOOLEAN } 
+// Optimization hint directives
 optimize = { ".plan" | ".sip" | ".optimize" }
 
-/** atoms **/
+/** Atoms (relation references) **/
+// Relation with arguments, e.g., "edge(x, y)"
 atom = { 
     relation_name ~ 
     "(" ~ 
-    atom_arg ~ 
-    ("," ~ atom_arg)* ~ 
+    (atom_arg ~ ("," ~ atom_arg)*)? ~ 
     ")" 
 }
+// Negated atom, e.g., "!edge(x, y)"
 neg_atom = { "!" ~ atom }
-atom_arg = { variable | constant | placeholder }                        // constant => magic sets, placeholder => not necessary column
-
+// Arguments in atoms can be variables, constants, or placeholders
+atom_arg = { variable | constant | placeholder }
 
 /** at most aggregate per head atom, e.g. R(x, min(z)) :- R(x, y), R(z, y), x > z. **/
+// Allows:
+// - one or more arithmics
+// - one or more arithmics ending in a single aggregate
+// - a single aggregate
 head = {
-    relation_name ~ 
-    "(" ~ 
-    arithmics ~ 
-    ("," ~ arithmics )* ~                                 // we only plan to support arithmics as constant for now
-    ("," ~ aggregate)? ~
-    ")" 
+    relation_name ~ (
+         (   "(" ~ arithmics ~ "," ~ (arithmics ~ ",")* ~ arithmics ~ ")"   )
+        |(   "(" ~ arithmics ~ "," ~ (arithmics ~ ",")* ~ aggregate ~ ")"   )
+        |(   "(" ~ arithmics ~ ")"                                          )
+        |(   "(" ~ aggregate ~ ")"                                          )
+     )
 } 
 
-/** aggregate **/
-// e.g. count(x), avg(x + y), sum(x), min(x), max(x * y * z)
+/** Aggregate expressions **/
+// Aggregation operation on a value, e.g., "count(x)", "avg(x + y)"
 aggregate = { 
     aggregate_op ~ 
     "(" ~ 
@@ -60,16 +83,18 @@ aggregate = {
     ")" 
 } 
 
+/** Aggregate operators **/
+aggregate_op = { count | sum | min | max }
+count = { "count" }
+sum = { "sum" }
+min = { "min" }
+max = { "max" }
 
-/** aggregate ops **/
-aggregate_op = { "count" | "average" | "sum" | "min" | "max" } 
-
-
-/** cmpr **/
-// e.g. x + y > z + w, z != w
+/** Comparison expressions **/
+// Binary comparison between arithmetic expressions, e.g., "x + y > z + w"
 compare_expr = { arithmics ~ compare_op ~ arithmics }
 
-/** cmpr ops **/
+/** Comparison operators **/
 compare_op = { 
     equals |
     not_equals | 
@@ -79,14 +104,12 @@ compare_op = {
     less_than 
 }
 
-
-/** arithmics **/
-// e.g. 3 + (y + z), x * y * z, x * (y * z), parentheses are needed for precedence
-// a version w/o precedence (for simplicity)
+/** Arithmetic expressions **/
+// Simple arithmetic without precedence, e.g., "x + y * z" is parsed left-to-right
 arithmics = { factor ~ (arithmic_op ~ factor)* }
 factor = { variable | constant }
 
-
+// Comparison operators
 equals = { "=" } 
 not_equals = { "!=" }
 greater_equal_than = { ">=" }
@@ -94,8 +117,7 @@ greater_than = { ">" }
 less_equal_than = { "<=" }
 less_than = { "<" }
 
-
-/** arithmic ops **/
+/** Arithmetic operators **/
 arithmic_op = { plus | minus | times | divide | modulo }
 plus = { "+" }
 minus = { "-" }
@@ -103,24 +125,31 @@ times = { "*" }
 divide = { "/" }
 modulo = { "%" }
 
-/** constants **/
+/** Constants and literals **/
 constant = { integer | string } 
+// Integer with optional sign
 integer = @{ ("+" | "-")? ~ ASCII_DIGIT+ }
+// String enclosed in double quotes
 string = { "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 
+// Placeholder for unused variables (underscore)
 placeholder = { "_" } 
 
+// Identifiers for variables, attributes, and relations
 variable = { identifier }
 attribute_name = { identifier }
 relation_name = { identifier }
-identifier = @{ "_"? ~ ASCII_ALPHA+ ~ (ASCII_ALPHANUMERIC | "_")* }                 // non-examples: 1x, x-yz (_x is fine)
+// Identifier rules: must start with letter or underscore, can contain letters, numbers, underscores
+// non-examples: 1x, x-yz (_x is fine)
+identifier = @{ "_"? ~ ASCII_ALPHA+ ~ (ASCII_ALPHANUMERIC | "_")* }
 
-data_type = { int_type | string_type }                                      // TODO: to be extended, say { int_type | string_type | float_type | double_type | ... }
+// Data types supported in the language
+data_type = { int_type | string_type }
 int_type = { "number" }
 string_type = { "string" }
 
+// Whitespace and comments are ignored during parsing
 WHITESPACE = _{ " " | "\t" | NEWLINE }
-COMMENT    = _{ "#" ~ (!NEWLINE ~ ANY)* }                                   // any character that is not a newline, followed by any character
-
-
-
+// Comment starts with # or // and continues until end of line
+COMMENT = _{ ("#" | "//") ~ (!NEWLINE ~ ANY)* }
+BOOLEAN = { "True" | "False" }

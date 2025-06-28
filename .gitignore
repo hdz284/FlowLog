@@ -1,5 +1,6 @@
 # populated by Cargo
 /target/
+/test/
 
 # output filefolder
 /result/
