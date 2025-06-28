@@ -4,12 +4,46 @@
 
 FlowLog is an efficient, scalable and extensible Datalog engine built atop Differential Dataflow.
 
+## Project Structure
+
+```
+├── catalog       # Program metadata representation
+├── debugging     # Debugging utilities
+├── executing     # Runtime execution engine
+├── macros        # Rust macros
+├── optimizing    # Query optimization
+├── parsing       # Parsing datalog language
+├── planning      # Query planning
+├── reading       # File and data input components
+├── strata        # Stratification logic
+└── examples      # Example programs and datasets
+```
 
 ## Installation
 
 ### Prerequisites
 - Rust and Cargo (latest stable version recommended)
 - Differential Dataflow (0.14.2)
+
+### Required Dependency Modification
+
+Before building, you need to modify the differential dataflow crate (version 0.13.7) by adding the following function to `differential_dataflow::collection.rs` at line 329 (after the `explode` function):
+
+```rust
+/// (udf) Brute-force replaces each record with another w/ a new difference type.
+///
+pub fn expand<D2, R2, I, L>(&self, mut logic: L) -> Collection<G, D2, R2>
+where
+    D2: Data,
+    R2: Semigroup + 'static,
+    I: IntoIterator<Item = (D2, R2)>,
+    L: FnMut(D) -> I + 'static,
+{
+    self.inner
+        .flat_map(move |(x, t, _)| logic(x).into_iter().map(move |(x, d2)| (x, t.clone(), d2)))
+        .as_collection()
+}
+```
 
 ### Building
 ```bash
@@ -150,6 +184,20 @@ The `examples/` directory contains several sample Datalog programs:
 
 - `examples/programs/batik.dl`: DOOP program for batik
 - `examples/programs/`: Other sample programs tested
+
+## Testing
+
+To run all bundled correctness tests:
+
+```bash
+bash env_test.sh
+```
+This script will automatically:
+1. Download and extract the test dataset and programs
+2. Run each test program with its corresponding input
+3. Verify output files against expected results
+
+You should see ✅ PASSED for each program if everything is correct.
 
 ## Performance
 
