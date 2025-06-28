@@ -163,9 +163,9 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "columnar"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9933b9f6e95b2189bd11ad5576ea9aef2f7f7dd93558361d0cd91c8a2122176"
+checksum = "bab5b6b26ca5c422e9e203cd01be745028a79439988f154c1f0cf2ae47806193"
 dependencies = [
  "bytemuck",
  "columnar_derive",
@@ -175,9 +175,9 @@ dependencies = [
 
 [[package]]
 name = "columnar_derive"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4e4a7f25618f6a2562f77fd33373978b1b8ea066600cc0d65ce71173f91641b"
+checksum = "82d2d0e929f19670e0d1cfea2e3607413555dfc4656fb1545954f3eaf9cc6e0a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -219,9 +219,9 @@ version = "0.1.0"
 
 [[package]]
 name = "differential-dataflow"
-version = "0.15.2"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b808ab85b0df005bbfed2a48f0c5a14ad05852e9acf13aafc70da114cd54688"
+checksum = "a455d273f7d0c0e1669bd384a065e30ba5e5fe18e5ef2fb67200b649e9487e93"
 dependencies = [
  "columnar",
  "columnation",
@@ -592,9 +592,9 @@ dependencies = [
 
 [[package]]
 name = "timely"
-version = "0.21.1"
+version = "0.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df178b522ba3fdc7a68368411869a018a3952a833ec35d1b9ced4f10a9eb9083"
+checksum = "17c9007b6f132ad1983f50665419e157c3386e5ab2706b3a6d29f832aef211ad"
 dependencies = [
  "bincode",
  "byteorder",
@@ -617,9 +617,9 @@ checksum = "ee3700cd9c50f14046eb86deb4f2825758966b40231ad8ffc479c510c42869a1"
 
 [[package]]
 name = "timely_communication"
-version = "0.19.1"
+version = "0.19.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e05668a2dca9c9d55961655d221ab40a5302800d70635ccb683133eb974bfcf2"
+checksum = "c0913c463e192579113ebf1f2a50cdfd9d2c682281490b6c704ffbf951568c29"
 dependencies = [
  "byteorder",
  "columnar",
@@ -632,15 +632,15 @@ dependencies = [
 
 [[package]]
 name = "timely_container"
-version = "0.15.1"
+version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "122f41e658e166b7a95a02b78265bc3f5272a4d0d28d1008f0da11b9a4cf79cd"
+checksum = "7c7ebe2a0ecd8afd17682e963b44749c6e92cfb87826ab41673645e8bc9b28bf"
 
 [[package]]
 name = "timely_logging"
-version = "0.13.4"
+version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47c57fb79cb66b7a3dc1beb4165c111e0e1900a18a9d33a73e2148ad7299b0bf"
+checksum = "0946cc7209a60906cd2e8df8e16d9330a2c69cee2a08160e858712b24d4ec614"
 dependencies = [
  "timely_container",
 ]

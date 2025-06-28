@@ -398,11 +398,12 @@ pub fn program_execution(
                         let rel_name = recursive_signature.name();
                         // printsize the relation
                         printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
+                        writesize_generic(&recursive_rel, &rel_name, &format!("{}size.txt", args.csvs()));
 
                         // write to file 
                         if args.output_result() {
                             let full_path = format!("{}/{}", args.csvs(), rel_name);
-                            write_relation_to_file(&recursive_rel, rel_name, &full_path, id);
+                            write_generic(&recursive_rel, rel_name, &full_path, id);
                         }
                         
                         // if the rel is in the row_map, it will be overwritten
@@ -469,7 +470,7 @@ pub fn program_execution(
             println!("{:?}:\tFixpoint reached", timer.elapsed());
 
             if args.output_result() {
-                for relation in strata.program().idbs() {
+                for relation in strata.program().idbs().into_iter().chain(strata.program().edbs()) {
                     let full_path = format!("{}/{}", args.csvs(), relation.name());
                     merge_relation_partitions(&full_path, peers); 
                 }
