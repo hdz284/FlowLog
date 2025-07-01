@@ -34,7 +34,7 @@
 
 
 
-reg_def_use_live_var_used(RetBlock,Reg,Reg,EA_used,Index) :- 
+reg_def_use_live_var_used(RetBlock,Reg,Reg,EA_used,sum(Index)) :- 
    reg_def_use_return_block_end(Callee,_,RetBlock,RetBlockEnd),
    !reg_def_use_block_last_def(RetBlockEnd,_,Reg),
    reg_def_use_return_val_used(_,Callee,Reg,EA_used,Index).

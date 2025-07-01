@@ -1,48 +1,51 @@
 use paste::paste;
 use std::sync::Arc;
 
-use timely::order::TotalOrder;
-use timely::dataflow::Scope;
 use timely::dataflow::operators::Concatenate;
 use timely::dataflow::scopes::Child;
-use timely::progress::timestamp::Refines;
+use timely::dataflow::Scope;
 use timely::dataflow::ScopeParent;
+use timely::order::TotalOrder;
+use timely::progress::timestamp::Refines;
 
-
-use differential_dataflow::Data;
 use differential_dataflow::lattice::Lattice;
-use differential_dataflow::operators::arrange::ArrangeBySelf;
 use differential_dataflow::operators::arrange::ArrangeByKey;
-use differential_dataflow::Collection;
+use differential_dataflow::operators::arrange::ArrangeBySelf;
+use differential_dataflow::operators::iterate::SemigroupVariable;
 use differential_dataflow::operators::ThresholdTotal;
 use differential_dataflow::AsCollection;
-use differential_dataflow::operators::iterate::SemigroupVariable;
+use differential_dataflow::Collection;
+use differential_dataflow::Data;
 
-use crate::Semiring;
-use crate::semiring_one;
 use crate::arrangements::ArrangedDict;
+use crate::semiring_one;
+use crate::Semiring;
 
 /* ------------------------------------------------------------------------------------ */
 /* Fat support for fallback when arity exceeds MAX */
 /* ------------------------------------------------------------------------------------ */
-use crate::row::FatRow; 
-
+use crate::row::FatRow;
 
 /* ------------------------------------------------------------------------------------ */
 /* Rel (wrap over collections) */
 /* ------------------------------------------------------------------------------------ */
 use crate::arrangements::ArrangedSet;
-use crate::row::Row;
 use crate::row::Array;
+use crate::row::Row;
 
 #[inline(always)]
-fn row_chop<const M: usize, const K: usize, const V: usize>() -> impl FnMut(Row<M>) -> (Row<K>, Row<V>) {
+fn row_chop<const M: usize, const K: usize, const V: usize>(
+) -> impl FnMut(Row<M>) -> (Row<K>, Row<V>) {
     move |v| {
         let mut key = Row::<K>::new();
         let mut value = Row::<V>::new();
 
-        for i in 0..K { key.push(v.column(i)); }
-        for i in K..M { value.push(v.column(i)); }
+        for i in 0..K {
+            key.push(v.column(i));
+        }
+        for i in K..M {
+            value.push(v.column(i));
+        }
 
         (key, value)
     }
@@ -54,11 +57,11 @@ fn fat_row_chop(k_arity: usize, total_arity: usize) -> impl FnMut(FatRow) -> (Fa
         let mut key = FatRow::new();
         let mut value = FatRow::new();
 
-        for i in 0..k_arity { 
-            key.push(v.column(i)); 
+        for i in 0..k_arity {
+            key.push(v.column(i));
         }
-        for i in k_arity..total_arity { 
-            value.push(v.column(i)); 
+        for i in k_arity..total_arity {
+            value.push(v.column(i));
         }
 
         (key, value)
@@ -78,8 +81,8 @@ macro_rules! impl_rels {
                     [<Variable $arity>](SemigroupVariable<G, Row<$arity>, Semiring>),
                 )*
                 // fallback for large arities that store true arity
-                CollectionFat(Collection<G, FatRow, Semiring>, usize), 
-                VariableFat(SemigroupVariable<G, FatRow, Semiring>, usize), 
+                CollectionFat(Collection<G, FatRow, Semiring>, usize),
+                VariableFat(SemigroupVariable<G, FatRow, Semiring>, usize),
             }
 
             impl<G: Scope> Rel<G>
@@ -103,7 +106,7 @@ macro_rules! impl_rels {
                 pub fn is_thin(&self) -> bool {
                     !self.is_fat()
                 }
-                
+
                 $(
                     // deref for rel_1, rel_2, ...,
                     pub fn [<rel_ $arity>](&self) -> &Collection<G, Row<$arity>, Semiring> {
@@ -174,7 +177,7 @@ macro_rules! impl_rels {
                     }
                 }
 
-                /* 
+                /*
                     pub fn negate(&self) -> Rel<G> {
                         match self.arity() {
                             $(
@@ -184,7 +187,7 @@ macro_rules! impl_rels {
                         }
                     }
                 */
-                
+
                 pub fn subtract(&self, other: &Rel<G>) -> Rel<G> {
                     assert_eq!(
                         self.arity(),
@@ -222,10 +225,10 @@ macro_rules! impl_rels {
                         }
                     }
                 }
-                        
-                pub fn concatenate<I>(&self, others: I) -> Rel<G> 
+
+                pub fn concatenate<I>(&self, others: I) -> Rel<G>
                 where
-                    I: Iterator<Item = Arc<Rel<G>>>,    
+                    I: Iterator<Item = Arc<Rel<G>>>,
                 {
                     if self.is_fat() {
                         let streams = others.into_iter().map(|other| match &*other {
@@ -233,9 +236,9 @@ macro_rules! impl_rels {
                             Rel::VariableFat(var, _) => var.inner.clone(),
                             _ => panic!("`others` must have the identical row type as `self` when concatenate"),
                         });
-                        
+
                         Rel::CollectionFat(
-                            self.rel_fat().inner.concatenate(streams).as_collection(), 
+                            self.rel_fat().inner.concatenate(streams).as_collection(),
                             self.arity()
                         )
                     } else {
@@ -247,7 +250,7 @@ macro_rules! impl_rels {
                                         Rel::[<Variable $arity>](var) => var.inner.clone(),
                                         _ => panic!("`others` must have the identical arity as `self` when concatenate"),
                                     });
-                    
+
                                     Rel::[<Collection $arity>](self.[<rel_ $arity>]().inner.concatenate(streams).as_collection())
                                 },
                             )*
@@ -255,11 +258,11 @@ macro_rules! impl_rels {
                         }
                     }
                 }
-                
+
                 pub fn threshold(&self) -> Rel<G> {
                     if self.is_fat() {
                         Rel::CollectionFat(
-                            self.rel_fat().threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one())), 
+                            self.rel_fat().threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one())),
                             self.arity()
                         )
                     } else {
@@ -338,7 +341,6 @@ macro_rules! impl_rels {
     };
 }
 
-
 macro_rules! impl_leave {
     ($($arity:literal),*) => {
         paste! {
@@ -371,14 +373,8 @@ macro_rules! impl_leave {
     };
 }
 
-
 impl_leave!(1, 2, 3, 4, 5, 6, 7, 8);
 impl_rels!(1, 2, 3, 4, 5, 6, 7, 8);
-
-
-
-
-
 
 macro_rules! impl_arranged_double {
     ($(($K:literal, $V:literal, $M:literal)),*) => {
@@ -416,17 +412,34 @@ macro_rules! impl_arranged_double {
 
 impl_arranged_double!(
     (1, 1, 2), //  2
-    (1, 2, 3), (2, 1, 3), //  3
-    (1, 3, 4), (2, 2, 4), (3, 1, 4), //  4
-    (1, 4, 5), (2, 3, 5), (3, 2, 5), (4, 1, 5), //  5
-    (1, 5, 6), (2, 4, 6), (3, 3, 6), (4, 2, 6), (5, 1, 6), //  6
-    (1, 6, 7), (2, 5, 7), (3, 4, 7), (4, 3, 7), (5, 2, 7), (6, 1, 7), //  7
-    (1, 7, 8), (2, 6, 8), (3, 5, 8), (4, 4, 8), (5, 3, 8), (6, 2, 8), (7, 1, 8) //  8
+    (1, 2, 3),
+    (2, 1, 3), //  3
+    (1, 3, 4),
+    (2, 2, 4),
+    (3, 1, 4), //  4
+    (1, 4, 5),
+    (2, 3, 5),
+    (3, 2, 5),
+    (4, 1, 5), //  5
+    (1, 5, 6),
+    (2, 4, 6),
+    (3, 3, 6),
+    (4, 2, 6),
+    (5, 1, 6), //  6
+    (1, 6, 7),
+    (2, 5, 7),
+    (3, 4, 7),
+    (4, 3, 7),
+    (5, 2, 7),
+    (6, 1, 7), //  7
+    (1, 7, 8),
+    (2, 6, 8),
+    (3, 5, 8),
+    (4, 4, 8),
+    (5, 3, 8),
+    (6, 2, 8),
+    (7, 1, 8) //  8
 );
-
-
-
-
 
 /* ------------------------------------------------------------------------------------ */
 /* DoubleRel */
@@ -457,6 +470,26 @@ macro_rules! impl_double_rels {
                             DoubleRel::[<DoubleRel $K _ $V>](_) => ($K, $V),
                         )*
                         DoubleRel::DoubleRelFat(_, k_arity, v_arity) => (*k_arity, *v_arity),
+                    }
+                }
+
+                /// Concatenate two DoubleRels with the same arity
+                pub fn concatenate<I>(&self, others: I) -> DoubleRel<G>
+                where
+                    I: Iterator<Item = Arc<DoubleRel<G>>>,
+                {
+                    match self.arity() {
+                        $(
+                            ($K, $V) => {
+                                let streams = others.into_iter().map(|other| match &*other {
+                                    DoubleRel::[<DoubleRel $K _ $V>](rel) => rel.inner.clone(),
+                                    _ => panic!("`others` must have the identical arity as `self` when concatenate"),
+                                });
+
+                                DoubleRel::[<DoubleRel $K _ $V>](self.[<rel_ $K _ $V>]().inner.concatenate(streams).as_collection())
+                            },
+                        )*
+                        _ => panic!("concatenate must have identical arity"),
                     }
                 }
 
@@ -493,7 +526,7 @@ macro_rules! impl_double_rels {
                     }
                 )*
 
-                // fat accessor 
+                // fat accessor
                 pub fn rel_fat(&self) -> &Collection<G, (FatRow, FatRow), Semiring> {
                     match self {
                         DoubleRel::DoubleRelFat(rel, _, _) => rel,
@@ -522,15 +555,69 @@ macro_rules! impl_double_rels {
     };
 }
 
-
 impl_double_rels!(
-    (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8),
-    (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (2, 7), (2, 8),
-    (3, 1), (3, 2), (3, 3), (3, 4), (3, 5), (3, 6), (3, 7), (3, 8),
-    (4, 1), (4, 2), (4, 3), (4, 4), (4, 5), (4, 6), (4, 7), (4, 8),
-    (5, 1), (5, 2), (5, 3), (5, 4), (5, 5), (5, 6), (5, 7), (5, 8),
-    (6, 1), (6, 2), (6, 3), (6, 4), (6, 5), (6, 6), (6, 7), (6, 8),
-    (7, 1), (7, 2), (7, 3), (7, 4), (7, 5), (7, 6), (7, 7), (7, 8),
-    (8, 1), (8, 2), (8, 3), (8, 4), (8, 5), (8, 6), (8, 7), (8, 8)
+    (1, 1),
+    (1, 2),
+    (1, 3),
+    (1, 4),
+    (1, 5),
+    (1, 6),
+    (1, 7),
+    (1, 8),
+    (2, 1),
+    (2, 2),
+    (2, 3),
+    (2, 4),
+    (2, 5),
+    (2, 6),
+    (2, 7),
+    (2, 8),
+    (3, 1),
+    (3, 2),
+    (3, 3),
+    (3, 4),
+    (3, 5),
+    (3, 6),
+    (3, 7),
+    (3, 8),
+    (4, 1),
+    (4, 2),
+    (4, 3),
+    (4, 4),
+    (4, 5),
+    (4, 6),
+    (4, 7),
+    (4, 8),
+    (5, 1),
+    (5, 2),
+    (5, 3),
+    (5, 4),
+    (5, 5),
+    (5, 6),
+    (5, 7),
+    (5, 8),
+    (6, 1),
+    (6, 2),
+    (6, 3),
+    (6, 4),
+    (6, 5),
+    (6, 6),
+    (6, 7),
+    (6, 8),
+    (7, 1),
+    (7, 2),
+    (7, 3),
+    (7, 4),
+    (7, 5),
+    (7, 6),
+    (7, 7),
+    (7, 8),
+    (8, 1),
+    (8, 2),
+    (8, 3),
+    (8, 4),
+    (8, 5),
+    (8, 6),
+    (8, 7),
+    (8, 8)
 );
-

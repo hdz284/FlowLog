@@ -1,11 +1,11 @@
-use proc_macro::TokenStream;
-use quote::quote;
 use itertools::iproduct;
-use syn::Ident;
+use proc_macro::TokenStream;
 use proc_macro2::Span;
+use quote::quote;
+use syn::Ident;
 
 // Import centralized configuration constants
-use reading::config::{KV_MAX, ROW_MAX, PROD_MAX};
+use reading::config::{KV_MAX, PROD_MAX, ROW_MAX};
 
 /* ------------------------------------------------------------------------ */
 /* codegen for maps */
@@ -19,9 +19,9 @@ pub fn codegen_row_row(_: TokenStream) -> TokenStream {
     for (iv_, target_) in space {
         let base_type = Ident::new(&format!("rel_{}", iv_), Span::call_site());
         let final_rel = Ident::new(&format!("Collection{}", target_), Span::call_site());
-        arms.push(quote! { 
+        arms.push(quote! {
             (#iv_, #target_) => #final_rel(
-                input_rel.#base_type().flat_map(row_row::<#iv_, #target_>(flow))) 
+                input_rel.#base_type().flat_map(row_row::<#iv_, #target_>(flow)))
         });
     }
 
@@ -42,12 +42,11 @@ pub fn codegen_row_row(_: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-
 /* row → kv */
 #[proc_macro]
 pub fn codegen_row_kv(_: TokenStream) -> TokenStream {
-    let space = iproduct!(1..=ROW_MAX, 1..=KV_MAX, 1..=KV_MAX)
-        .filter(|&(iv, ok, ov)| iv >= ok + ov);
+    let space =
+        iproduct!(1..=ROW_MAX, 1..=KV_MAX, 1..=KV_MAX).filter(|&(iv, ok, ov)| iv >= ok + ov);
     let mut arms = vec![];
 
     for (iv_, ok_, ov_) in space {
@@ -79,9 +78,6 @@ pub fn codegen_row_kv(_: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-
-
-
 /* ------------------------------------------------------------------------ */
 /* codegen for kv ⋈ kv */
 /* ------------------------------------------------------------------------ */
@@ -100,7 +96,7 @@ pub fn codegen_jn(_: TokenStream) -> TokenStream {
                 #final_rel(
                     dict_0.#type_0()
                     .join_core(
-                        dict_1.#type_1(), 
+                        dict_1.#type_1(),
                         jn_logic::<#ik0_, #iv0_, #iv1_, #target_>(flow)
                     )
                 )
@@ -113,7 +109,7 @@ pub fn codegen_jn(_: TokenStream) -> TokenStream {
             CollectionFat(
                 dict_0.dict_fat()
                     .join_core(
-                        dict_1.dict_fat(), 
+                        dict_1.dict_fat(),
                         jn_logic_fat(flow)
                     ),
                 target
@@ -128,7 +124,6 @@ pub fn codegen_jn(_: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-
 
 #[proc_macro]
 pub fn codegen_cartesian(_: TokenStream) -> TokenStream {
@@ -181,8 +176,6 @@ pub fn codegen_cartesian(_: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-                             
-
 
 /* ------------------------------------------------------------------------ */
 /* codegen for kv ⋈ k */
@@ -208,7 +201,7 @@ pub fn codegen_kv_k_jn(_: TokenStream) -> TokenStream {
             }
         });
     }
-    
+
     let expanded = quote! {
         if dict_0.is_fat() && set_1.is_fat() {
             CollectionFat(
@@ -229,7 +222,6 @@ pub fn codegen_kv_k_jn(_: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-
 
 /* ------------------------------------------------------------------------ */
 /* codegen for k ⋈ k */
@@ -277,16 +269,14 @@ pub fn codegen_k_k_jn(_: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-
-
-
 /* ------------------------------------------------------------------------ */
 /* codegen for aj flatten */
 /* ------------------------------------------------------------------------ */
 
 #[proc_macro]
 pub fn codegen_kv_flatten(_: TokenStream) -> TokenStream {
-    let space = iproduct!(1..=KV_MAX, 1..=KV_MAX, 1..=KV_MAX).filter(|&(ik, iv, target)| ik + iv >= target);
+    let space =
+        iproduct!(1..=KV_MAX, 1..=KV_MAX, 1..=KV_MAX).filter(|&(ik, iv, target)| ik + iv >= target);
 
     let mut arms = vec![];
     for (ik0_, iv0_, target_) in space {
@@ -300,7 +290,7 @@ pub fn codegen_kv_flatten(_: TokenStream) -> TokenStream {
             }
         });
     }
-    
+
     let expanded = quote! {
         if dict_0.is_fat() {
             CollectionFat(
@@ -317,8 +307,6 @@ pub fn codegen_kv_flatten(_: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-
-
 
 #[proc_macro]
 pub fn codegen_k_flatten(_: TokenStream) -> TokenStream {
@@ -351,5 +339,48 @@ pub fn codegen_k_flatten(_: TokenStream) -> TokenStream {
         }
     };
 
+    TokenStream::from(expanded)
+}
+
+/* ------------------------------------------------------------------------ */
+/* codegen for aggregation */
+/* ------------------------------------------------------------------------ */
+#[proc_macro]
+pub fn codegen_aggregation(_: TokenStream) -> TokenStream {
+    let space = 0..=KV_MAX; // Arity of key. Value arity is always 1.
+    let mut arms = vec![];
+
+    for key_arity in space {
+        let arity = key_arity + 1;
+        let base_type = Ident::new(&format!("rel_{}", arity), Span::call_site());
+        let final_rel = Ident::new(&format!("Collection{}", arity), Span::call_site());
+        arms.push(quote! {
+            #arity => #final_rel(
+                input_rel.#base_type()
+                    .map(aggregation_separate_kv::<{#key_arity}, {#arity}>())
+                    .reduce_core("aggregation", aggregation_reduce_logic::<{#key_arity}, {#arity}>(&aggregation))
+                    .as_collection(|k: &Row<{#key_arity}>, v: &Row<1>| (k.clone(), v.clone()))
+                    .map(aggregation_merge_kv::<{#key_arity}, {#arity}>())
+            )
+        });
+    }
+
+    let expanded = quote! {
+        if input_rel.is_fat() {
+            CollectionFat(
+                input_rel.rel_fat()
+                    .map(aggregation_separate_kv_fat())
+                    .reduce_core("aggregation", aggregation_reduce_logic_fat(&aggregation))
+                    .as_collection(|k: &FatRow, v: &Row<1>| (k.clone(), v.clone()))
+                    .map(aggregation_merge_kv_fat()),
+                idb_catalog.arity()
+            )
+        } else {
+            match idb_catalog.arity() {
+                #(#arms),*,
+                _ => panic!("codegen_aggregation unimplemented for arity {}", idb_catalog.arity()),
+            }
+        }
+    };
     TokenStream::from(expanded)
 }

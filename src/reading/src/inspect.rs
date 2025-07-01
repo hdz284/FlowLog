@@ -5,8 +5,8 @@
 // use differential_dataflow::difference::Abelian;
 use differential_dataflow::difference::Semigroup;
 
-use differential_dataflow::operators::threshold::ThresholdTotal;
 use differential_dataflow::lattice::Lattice;
+use differential_dataflow::operators::threshold::ThresholdTotal;
 use differential_dataflow::{Collection, ExchangeData, Hashable};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -82,7 +82,9 @@ where
     let name = name.to_owned();
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|x| Some((x, 1 as i32)))
-        .inspect(move |(data, time, delta)| println!("{}: ({}, {:?}, {})", name, data, time, delta));  // use std::fmt::Display for D (i.e. Row)
+        .inspect(move |(data, time, delta)| {
+            println!("{}: ({}, {:?}, {})", name, data, time, delta)
+        }); // use std::fmt::Display for D (i.e. Row)
 }
 
 /// Flush relation data to a file
@@ -106,12 +108,12 @@ where
             writeln!(file, "{}", data).expect(&format!("Failed to write to file: {}", path));
         });
 
-        // alternative (faster)
-        // .inspect_batch(move |_batch_time, rows| {
-        //     let mut file = file_handle.lock().unwrap();
-        //     let batch_str = rows.iter().map(|(data, _, _)| format!("{}", data)).collect::<Vec<_>>().join("\n");
-        //     writeln!(file, "{}", batch_str).expect(&format!("Failed to write to file: {}", path));
-        // });
+    // alternative (faster)
+    // .inspect_batch(move |_batch_time, rows| {
+    //     let mut file = file_handle.lock().unwrap();
+    //     let batch_str = rows.iter().map(|(data, _, _)| format!("{}", data)).collect::<Vec<_>>().join("\n");
+    //     writeln!(file, "{}", batch_str).expect(&format!("Failed to write to file: {}", path));
+    // });
 }
 
 /// Prints the content of a relation with any arity

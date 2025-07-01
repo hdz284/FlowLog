@@ -1,10 +1,12 @@
 .in 
 .decl arc(src: number, dest: number) 
+.input arc.facts
 .decl source(src: number)
+.input ne.facts
 
 .printsize 
-.decl tc(src: number, dest: number) 
+.decl reach(src: number, dest: number) 
 
 .rule
 reach(x) :- source(x).
-reach(y) :- arc(x, y), reach(x).
+reach(x, sum(y)) :- arc(x, y), reach(x).
