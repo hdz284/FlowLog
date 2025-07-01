@@ -3,7 +3,7 @@
 .decl source(src: number)
 
 .printsize 
-.decl tc(src: number, dest: number) 
+.decl reach(src: number, dest: number) 
 
 .rule
 reach(x) :- source(x).

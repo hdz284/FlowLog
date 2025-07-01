@@ -467,15 +467,15 @@ pub fn program_execution(
         }
 
         if id == 0 {
-            println!("{:?}:\tFixpoint reached", timer.elapsed());
+            println!("{:?}:\tFixpoint reached", timer.elapsed()); // <--- end of clock excluding output
 
             if args.output_result() {
                 for relation in strata.program().idbs().into_iter().chain(strata.program().edbs()) {
-                    let full_path = format!("{}/{}", args.csvs(), relation.name());
+                    let full_path = format!("{}/{}.csv", args.csvs(), relation.name());
+                    println!("Merging relation partitions for: {}", full_path);
                     merge_relation_partitions(&full_path, peers); 
                 }
             }
-            
         }
     }).expect("execute_from_args dies");
 }

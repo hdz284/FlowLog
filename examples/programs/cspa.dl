@@ -9,8 +9,6 @@
 .decl valueFlow(src: number, dest: number)
 .decl valueAlias(src: number, dest: number)
 .decl memoryAlias(src: number, dest: number)
-.decl valueFlowHelp(src: number, dest: number)
-.decl memoryAliasHelp(src: number, dest: number)
 
 .rule
 valueFlow(y, x) :- assign(y, x).
@@ -25,6 +23,7 @@ valueFlow(x, y) :- assign(x, y).
 valueFlow(x, x) :- assign(y, x).
 memoryAlias(x, x) :- assign(y, x).
 memoryAlias(x, x) :- assign(x, y).
+
 
 
 

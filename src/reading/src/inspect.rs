@@ -121,10 +121,10 @@ where
     R: Semigroup + ExchangeData,
 {
     let name = name.to_owned();
-    let path = format!("{}{}", file_path, worker_id);
+    let path = format!("{}.csv{}", file_path, worker_id);
     let file_handle = get_file_handle(&path);
 
-    println!("Writing relation {} to file {}", name, path);
+    println!("writing {} to {}", name, path);
 
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .expand(|x| Some((x, 1 as i32)))
