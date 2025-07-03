@@ -51,7 +51,7 @@ rustup default stable
 mkdir -p ./test
 
 ZIP_PATH="./test/correctness_test.zip"
-UNZIP_DIR="./test/correctness_test"
+UNZIP_DIR="./test"
 
 if [ -d "./test/correctness_test/dataset" ] && [ -d "./test/correctness_test/program" ]; then
     echo "📁 Dataset already extracted. Skipping download."
