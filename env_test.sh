@@ -76,7 +76,7 @@ verify_results() {
         local name="${line%%:*}"
         local count_str="${line##*:}"
         local expected=$(echo "$count_str" | grep -o '[0-9]\+')
-        local csv_path="${CSV_DIR}/${name}"
+        local csv_path="${CSV_DIR}/${name}.csv"
 
         if [ ! -f "$csv_path" ]; then
             echo "❌ Missing CSV: $csv_path"
