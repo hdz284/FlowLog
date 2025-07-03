@@ -40,17 +40,17 @@ rustup default stable
 
 mkdir -p ./test
 
-ZIP_PATH="./test/correctness_test_bundle.zip"
+ZIP_PATH="./test/correctness_test.zip"
 UNZIP_DIR="./test"
 
-if [ -d "./test/correctness_test_data" ] && [ -d "./test/correctness_test_program" ]; then
+if [ -d "./test/dataset" ] && [ -d "./test/program" ]; then
     echo "📁 Dataset already extracted. Skipping download."
 else
     echo "⬇️ Downloading and extracting dataset bundle..."
-    wget -O "$ZIP_PATH" https://pages.cs.wisc.edu/~m0riarty/correctness_test_bundle.zip
+    wget -O "$ZIP_PATH" https://pages.cs.wisc.edu/~m0riarty/correctness_test.zip
     unzip "$ZIP_PATH" -d "$UNZIP_DIR"
     rm "$ZIP_PATH"
-    echo "✅ Dataset bundle extracted and zip file removed."
+    echo "✅ Dataset extracted and zip file removed."
 fi
 
 echo "=== SETUP COMPLETE ==="
@@ -105,20 +105,34 @@ verify_results() {
 }
 
 # --------------------------
-# Run All Correctness Programs
+# Run All Correctness Programs (with config.txt)
 # --------------------------
 
 run_all_correctness_tests() {
-    local PROG_DIR="./test/correctness_test_program"
-    local FACT_DIR="./test/correctness_test_data"
+    local CONFIG_FILE="./test/config.txt"
+    local PROG_DIR="./test/program"
+    local FACT_DIR="./test/dataset"
     local CSV_DIR="./result"
     local WORKERS=32
 
-    for prog_path in "$PROG_DIR"/*.dl; do
-        prog_file=$(basename "$prog_path")
-        name="${prog_file%.dl}"  # strip .dl extension
+    while IFS='=' read -r prog_name dataset_name; do
+        if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
+            continue  # Skip empty lines or malformed lines
+        fi
 
-        echo "🚀 Running program: $prog_file"
+        prog_path="${PROG_DIR}/${prog_name}"
+        fact_path="${FACT_DIR}/${dataset_name}"
+
+        echo "🚀 Running program: $prog_name with dataset: $dataset_name"
+
+        if [ ! -f "$prog_path" ]; then
+            echo "❌ Program not found: $prog_path"
+            exit 1
+        fi
+        if [ ! -d "$fact_path" ]; then
+            echo "❌ Dataset folder not found: $fact_path"
+            exit 1
+        fi
 
         # Clean previous result
         rm -rf "$CSV_DIR"
@@ -126,21 +140,21 @@ run_all_correctness_tests() {
 
         cargo run --release --bin executing \
             -- --program "$prog_path" \
-               --facts "$FACT_DIR/$name/" \
+               --facts "$fact_path/" \
                --csvs "$CSV_DIR/" \
                --verbose \
                --workers "$WORKERS" \
                --output-result
 
-        echo "🔍 Verifying result for $name..."
+        echo "🔍 Verifying result for $prog_name..."
         verify_results || {
-            echo "❌ Verification failed for $name"
+            echo "❌ Verification failed for $prog_name"
             exit 1
         }
 
-        echo "✅ $name PASSED"
+        echo "✅ $prog_name PASSED"
         echo "-----------------------------"
-    done
+    done < "$CONFIG_FILE"
 
     echo "🎉 All correctness tests completed!"
 }
