@@ -403,7 +403,7 @@ pub fn program_execution(
                         // write to file 
                         if args.output_result() {
                             let full_path = format!("{}/{}", args.csvs(), rel_name);
-                            write_generic(&recursive_rel, rel_name, &full_path, id);
+                            write_generic(&recursive_rel, &format!("{}.csv", rel_name), &full_path, id);
                         }
                         
                         // if the rel is in the row_map, it will be overwritten
@@ -470,11 +470,7 @@ pub fn program_execution(
             println!("{:?}:\tFixpoint reached", timer.elapsed()); // <--- end of clock excluding output
 
             if args.output_result() {
-                for relation in strata.program().idbs().into_iter().chain(strata.program().edbs()) {
-                    let full_path = format!("{}/{}.csv", args.csvs(), relation.name());
-                    println!("Merging relation partitions for: {}", full_path);
-                    merge_relation_partitions(&full_path, peers); 
-                }
+                merge_relation_partitions(peers);
             }
         }
     }).expect("execute_from_args dies");

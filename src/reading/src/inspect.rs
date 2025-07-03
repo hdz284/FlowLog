@@ -9,7 +9,7 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::threshold::ThresholdTotal;
 use differential_dataflow::{Collection, ExchangeData, Hashable};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{read_to_string, remove_file, File};
 use std::io::Write;
 use std::path::Path;
@@ -23,6 +23,7 @@ use crate::semiring_one;
 // Thread-local storage for file handles to avoid repeatedly opening the same files
 thread_local! {
     static FILE_HANDLES: RefCell<HashMap<String, Arc<Mutex<File>>>> = RefCell::new(HashMap::new());
+    static RELATION_TABLE: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
 }
 
 /// Gets or creates a file handle for the specified path
@@ -121,8 +122,12 @@ where
     R: Semigroup + ExchangeData,
 {
     let name = name.to_owned();
-    let path = format!("{}.csv{}", file_path, worker_id);
+    let path = format!("{}{}", file_path, worker_id);
     let file_handle = get_file_handle(&path);
+
+    RELATION_TABLE.with(|table| {
+        table.borrow_mut().insert(file_path.to_string());
+    });
 
     println!("writing {} to {}", name, path);
 
@@ -246,35 +251,39 @@ where
 ///
 /// - `output_dir`: The directory containing worker partition files.
 /// - `worker_count`: Number of workers (used to find all partial files).
-pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
-    let file_handle = get_file_handle(&output_path);
+pub fn merge_relation_partitions(worker_count: usize) {
+    RELATION_TABLE.with(|table| {
+        for output_path in table.borrow().iter() {
+            let file_handle = get_file_handle(&format!("{}.csv", output_path));
 
-    // Read and concatenate all existing worker files
-    let merged_content = (0..worker_count)
-        .filter_map(|worker_id| {
-            let part_path = format!("{}{}", output_path, worker_id);
-            match read_to_string(&part_path) {
-                Ok(content) => Some(content),
-                Err(_) => {
-                    eprintln!("Warning: missing or unreadable file {}", part_path);
-                    None
-                }
+            // Read and concatenate all existing worker files
+            let merged_content = (0..worker_count)
+                .filter_map(|worker_id| {
+                    let part_path = format!("{}{}", output_path, worker_id);
+                    match read_to_string(&part_path) {
+                        Ok(content) => Some(content),
+                        Err(_) => {
+                            eprintln!("Warning: missing or unreadable file {}", part_path);
+                            None
+                        }
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("");
+
+            let mut file = file_handle.lock().unwrap();
+            // Dump the merged content into the main output file
+            if let Err(e) = file.write_all(merged_content.as_bytes()) {
+                eprintln!("Error to write merged file {}: {}", output_path, e);
             }
-        })
-        .collect::<Vec<_>>()
-        .join("");
 
-    let mut file = file_handle.lock().unwrap();
-    // Dump the merged content into the main output file
-    if let Err(e) = file.write_all(merged_content.as_bytes()) {
-        eprintln!("Error to write merged file {}: {}", output_path, e);
-    }
-
-    // Attempt to remove all partial files, ignore failure
-    for worker_id in 0..worker_count {
-        let part_path = format!("{}{}", output_path, worker_id);
-        let _ = remove_file(&part_path);
-    }
+            // Attempt to remove all partial files, ignore failure
+            for worker_id in 0..worker_count {
+                let part_path = format!("{}{}", output_path, worker_id);
+                let _ = remove_file(&part_path);
+            }
+        }
+    });
 }
 
 /// Closes all open file handles

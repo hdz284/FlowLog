@@ -10,12 +10,22 @@ set -e
 echo "🔧 Updating system packages..."
 sudo apt update && sudo apt upgrade -y
 
-# Install htop if not present
+# Install htop and dos2unix if not present
+missing_packages=()
+
 if ! command -v htop &> /dev/null; then
-    echo "📦 Installing htop..."
-    sudo apt install -y htop
+    missing_packages+=("htop")
+fi
+
+if ! command -v dos2unix &> /dev/null; then
+    missing_packages+=("dos2unix")
+fi
+
+if [ ${#missing_packages[@]} -ne 0 ]; then
+    echo "📦 Installing missing packages: ${missing_packages[*]}..."
+    sudo apt install -y "${missing_packages[@]}"
 else
-    echo "✅ htop is already installed."
+    echo "✅ htop and dos2unix are already installed."
 fi
 
 # Install Rust if not present
@@ -41,9 +51,9 @@ rustup default stable
 mkdir -p ./test
 
 ZIP_PATH="./test/correctness_test.zip"
-UNZIP_DIR="./test"
+UNZIP_DIR="./test/correctness_test"
 
-if [ -d "./test/dataset" ] && [ -d "./test/program" ]; then
+if [ -d "./test/correctness_test/dataset" ] && [ -d "./test/correctness_test/program" ]; then
     echo "📁 Dataset already extracted. Skipping download."
 else
     echo "⬇️ Downloading and extracting dataset bundle..."
@@ -51,6 +61,10 @@ else
     unzip "$ZIP_PATH" -d "$UNZIP_DIR"
     rm "$ZIP_PATH"
     echo "✅ Dataset extracted and zip file removed."
+    
+    # Fix config.txt line endings
+    echo "🛠️ Fixing line endings in config.txt..."
+    dos2unix ./test/correctness_test/config.txt 2>/dev/null || true
 fi
 
 echo "=== SETUP COMPLETE ==="
@@ -109,9 +123,9 @@ verify_results() {
 # --------------------------
 
 run_all_correctness_tests() {
-    local CONFIG_FILE="./test/config.txt"
-    local PROG_DIR="./test/program"
-    local FACT_DIR="./test/dataset"
+    local CONFIG_FILE="./test/correctness_test/config.txt"
+    local PROG_DIR="./test/correctness_test/program"
+    local FACT_DIR="./test/correctness_test/dataset"
     local CSV_DIR="./result"
     local WORKERS=32
 
@@ -129,6 +143,7 @@ run_all_correctness_tests() {
             echo "❌ Program not found: $prog_path"
             exit 1
         fi
+
         if [ ! -d "$fact_path" ]; then
             echo "❌ Dataset folder not found: $fact_path"
             exit 1
