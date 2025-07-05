@@ -61,7 +61,7 @@ else
     unzip "$ZIP_PATH" -d "$UNZIP_DIR"
     rm "$ZIP_PATH"
     echo "✅ Dataset extracted and zip file removed."
-    
+
     # Fix config.txt line endings
     echo "🛠️ Fixing line endings in config.txt..."
     dos2unix ./test/correctness_test/config.txt 2>/dev/null || true
@@ -119,10 +119,15 @@ verify_results() {
 }
 
 # --------------------------
-# Run All Correctness Programs (with config.txt)
+# Test Runner for a Build
 # --------------------------
 
-run_all_correctness_tests() {
+run_tests_for_binary() {
+    local BUILD_TYPE="$1"
+    local BINARY_PATH="./target/release/executing"
+
+    echo "🚀 Running tests for build type: $BUILD_TYPE"
+
     local CONFIG_FILE="./test/correctness_test/config.txt"
     local PROG_DIR="./test/correctness_test/program"
     local FACT_DIR="./test/correctness_test/dataset"
@@ -131,13 +136,13 @@ run_all_correctness_tests() {
 
     while IFS='=' read -r prog_name dataset_name; do
         if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
-            continue  # Skip empty lines or malformed lines
+            continue
         fi
 
-        prog_path="${PROG_DIR}/${prog_name}"
-        fact_path="${FACT_DIR}/${dataset_name}"
+        local prog_path="${PROG_DIR}/${prog_name}"
+        local fact_path="${FACT_DIR}/${dataset_name}"
 
-        echo "🚀 Running program: $prog_name with dataset: $dataset_name"
+        echo "🔧 Testing Program: $prog_name, Dataset: $dataset_name"
 
         if [ ! -f "$prog_path" ]; then
             echo "❌ Program not found: $prog_path"
@@ -145,37 +150,55 @@ run_all_correctness_tests() {
         fi
 
         if [ ! -d "$fact_path" ]; then
-            echo "❌ Dataset folder not found: $fact_path"
+            echo "❌ Dataset not found: $fact_path"
             exit 1
         fi
 
-        # Clean previous result
-        rm -rf "$CSV_DIR"
-        mkdir -p "$CSV_DIR"
+        for sharing_flag in "" "--no-sharing"; do
+            local test_case="with-sharing"
+            if [ "$sharing_flag" = "--no-sharing" ]; then
+                test_case="no-sharing"
+            fi
 
-        cargo run --release --bin executing \
-            -- --program "$prog_path" \
-               --facts "$fact_path/" \
-               --csvs "$CSV_DIR/" \
-               --verbose \
-               --workers "$WORKERS" \
-               --output-result
+            echo "▶️ [$BUILD_TYPE] Running test case: $test_case"
 
-        echo "🔍 Verifying result for $prog_name..."
-        verify_results || {
-            echo "❌ Verification failed for $prog_name"
-            exit 1
-        }
+            rm -rf "$CSV_DIR"
+            mkdir -p "$CSV_DIR"
 
-        echo "✅ $prog_name PASSED"
-        echo "-----------------------------"
+            "$BINARY_PATH" \
+                --program "$prog_path" \
+                --facts "$fact_path/" \
+                --csvs "$CSV_DIR/" \
+                --verbose \
+                --workers "$WORKERS" \
+                --output-result $sharing_flag
+
+            echo "🔍 Verifying result ($test_case)..."
+            verify_results || {
+                echo "❌ Verification failed for $prog_name ($BUILD_TYPE, $test_case)"
+                exit 1
+            }
+
+            echo "✅ Test Passed: $prog_name ($BUILD_TYPE, $test_case)"
+            echo "----------------------------------------"
+        done
     done < "$CONFIG_FILE"
 
-    echo "🎉 All correctness tests completed!"
+    echo "🎉 All tests passed for build type: $BUILD_TYPE"
 }
 
 # --------------------------
-# Run the Full Pipeline
+# Full Build and Test Pipeline
 # --------------------------
 
-run_all_correctness_tests
+echo "🔨 Building Present Semiring (default)..."
+cargo build --release
+
+run_tests_for_binary "present"
+
+echo "🔨 Building Isize Semiring..."
+cargo build --release --features isize-type --no-default-features
+
+run_tests_for_binary "isize"
+
+echo "🏁 All 4 test cases per program completed successfully."
