@@ -206,8 +206,8 @@ macro_rules! impl_rels {
                     if self.is_fat() {
                         Rel::CollectionFat(
                             self.rel_fat()
-                                .expand(|x| Some((x, 1 as i32)))
-                                .concat(&other.rel_fat().expand(|x| Some((x, -1 as i32))))
+                                .lift(|x| Some((x, 1 as i32)))
+                                .concat(&other.rel_fat().lift(|x| Some((x, -1 as i32))))
                                 .threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one())),
                             self.arity()
                         )
@@ -216,8 +216,8 @@ macro_rules! impl_rels {
                             $(
                                 $arity => Rel::[<Collection $arity>](
                                     self.[<rel_ $arity>]()
-                                        .expand(|x| Some((x, 1 as i32)))
-                                        .concat(&other.[<rel_ $arity>]().expand(|x| Some((x, -1 as i32))))
+                                        .lift(|x| Some((x, 1 as i32)))
+                                        .concat(&other.[<rel_ $arity>]().lift(|x| Some((x, -1 as i32))))
                                         .threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
                                 ),
                             )*

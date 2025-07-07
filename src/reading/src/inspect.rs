@@ -9,7 +9,7 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::threshold::ThresholdTotal;
 use differential_dataflow::{Collection, ExchangeData, Hashable};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap};
 use std::fs::{read_to_string, remove_file, File};
 use std::io::Write;
 use std::path::Path;
@@ -37,12 +37,12 @@ fn get_file_handle(path: &str) -> Arc<Mutex<File>> {
         if !handles_ref.contains_key(&path_str) {
             // Create directory if it doesn't exist
             if let Some(parent) = Path::new(path).parent() {
-                std::fs::create_dir_all(parent).expect("Failed to create output directory");
+                std::fs::create_dir_all(parent).expect("Can not create output directory");
             }
 
             // Open file for writing
             let file =
-                File::create(path).expect(&format!("Failed to create output file: {}", path));
+                File::create(path).expect(&format!("Can not create output file: {}", path));
             handles_ref.insert(path_str.clone(), Arc::new(Mutex::new(file)));
         }
 
@@ -65,7 +65,7 @@ where
     };
 
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
-        .expand(|_| Some(((), 1 as i32)))
+        .lift(|_| Some(((), 1 as i32)))
         .map(|_| ())
         .consolidate()
         .inspect(move |x| println!("{}: {:?}", prefix, x));
@@ -81,38 +81,60 @@ where
 {
     let name = name.to_owned();
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
-        .expand(|x| Some((x, 1 as i32)))
+        .lift(|x| Some((x, 1 as i32)))
         .inspect(move |(data, time, delta)| {
             println!("{}: ({}, {:?}, {})", name, data, time, delta)
         }); // use std::fmt::Display for D (i.e. Row)
 }
 
+/// Write relation size
+fn writesize<G, D, R>(rel: &Collection<G, D, R>, name: &str, file_path: &str)
+where
+    G: Scope,
+    G::Timestamp: Lattice + TotalOrder,
+    D: ExchangeData + Hashable,
+    R: Semigroup + ExchangeData,
+{
+    let file_handle = get_file_handle(&file_path);
+    let file_path = file_path.to_string();
+    let name = name.to_string();
+
+    rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
+        .lift(|_| Some(((), 1 as i32)))
+        .map(|_| ())
+        .consolidate()
+        .inspect({
+            move |x| {
+                let mut file = file_handle.lock().unwrap();
+                writeln!(file, "{}: {:?}", name, x)
+                    .expect(&format!("Can not write size: {}", file_path));
+            }
+        });
+}
+
 /// Flush relation data to a file
-fn write_to_file<G, D, R>(rel: &Collection<G, D, R>, name: &str, file_path: &str, worker_id: usize)
+fn write<G, D, R>(rel: &Collection<G, D, R>, file_path: &str, worker_id: usize)
 where
     G: Scope,
     G::Timestamp: Lattice + TotalOrder,
     D: ExchangeData + Hashable + std::fmt::Display,
     R: Semigroup + ExchangeData,
 {
-    let name = name.to_owned();
     let path = format!("{}{}", file_path, worker_id);
     let file_handle = get_file_handle(&path);
 
-    println!("Writing relation {} to file {}", name, path);
-
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
-        .expand(|x| Some((x, 1 as i32)))
+        .lift(|x| Some((x, 1 as i32)))
         .inspect(move |(data, _time, _delta)| {
             let mut file = file_handle.lock().unwrap();
-            writeln!(file, "{}", data).expect(&format!("Failed to write to file: {}", path));
+            writeln!(file, "{}", data).expect(&format!("Can not write: {}", path));
         });
 
     // alternative (faster)
     // .inspect_batch(move |_batch_time, rows| {
     //     let mut file = file_handle.lock().unwrap();
     //     let batch_str = rows.iter().map(|(data, _, _)| format!("{}", data)).collect::<Vec<_>>().join("\n");
-    //     writeln!(file, "{}", batch_str).expect(&format!("Failed to write to file: {}", path));
+    //     writeln!(file, "{}", batch_str).expect(&format!("Can not write to file: {}", path));
     // });
 }
 
@@ -165,24 +187,48 @@ where
 }
 
 /// Writes a relation with any arity to a file
-pub fn write_relation_to_file<G>(rel: &Rel<G>, name: &str, file_path: &str, worker_id: usize)
+pub fn write_generic<G>(rel: &Rel<G>, file_path: &str, worker_id: usize)
 where
     G: Scope,
     G::Timestamp: Lattice + TotalOrder,
 {
     if rel.is_fat() {
-        write_to_file(rel.rel_fat(), name, file_path, worker_id)
+        write(rel.rel_fat(), file_path, worker_id)
     } else {
         let arity = rel.arity();
         match arity {
-            1 => write_to_file(rel.rel_1(), name, file_path, worker_id),
-            2 => write_to_file(rel.rel_2(), name, file_path, worker_id),
-            3 => write_to_file(rel.rel_3(), name, file_path, worker_id),
-            4 => write_to_file(rel.rel_4(), name, file_path, worker_id),
-            5 => write_to_file(rel.rel_5(), name, file_path, worker_id),
-            6 => write_to_file(rel.rel_6(), name, file_path, worker_id),
-            7 => write_to_file(rel.rel_7(), name, file_path, worker_id),
-            8 => write_to_file(rel.rel_8(), name, file_path, worker_id),
+            1 => write(rel.rel_1(), file_path, worker_id),
+            2 => write(rel.rel_2(), file_path, worker_id),
+            3 => write(rel.rel_3(), file_path, worker_id),
+            4 => write(rel.rel_4(), file_path, worker_id),
+            5 => write(rel.rel_5(), file_path, worker_id),
+            6 => write(rel.rel_6(), file_path, worker_id),
+            7 => write(rel.rel_7(), file_path, worker_id),
+            8 => write(rel.rel_8(), file_path, worker_id),
+            _ => unreachable!("arity {} should be handled by fixed-size variants", arity),
+        }
+    }
+}
+
+/// Writes a relation size with any arity to a file
+pub fn writesize_generic<G>(rel: &Rel<G>, name: &str, file_path: &str)
+where
+    G: Scope,
+    G::Timestamp: Lattice + TotalOrder,
+{
+    if rel.is_fat() {
+        writesize(rel.rel_fat(), name, file_path)
+    } else {
+        let arity = rel.arity();
+        match arity {
+            1 => writesize(rel.rel_1(), name, file_path),
+            2 => writesize(rel.rel_2(), name, file_path),
+            3 => writesize(rel.rel_3(), name, file_path),
+            4 => writesize(rel.rel_4(), name, file_path),
+            5 => writesize(rel.rel_5(), name, file_path),
+            6 => writesize(rel.rel_6(), name, file_path),
+            7 => writesize(rel.rel_7(), name, file_path),
+            8 => writesize(rel.rel_8(), name, file_path),
             _ => unreachable!("arity {} should be handled by fixed-size variants", arity),
         }
     }
@@ -198,7 +244,7 @@ where
 /// - `output_dir`: The directory containing worker partition files.
 /// - `worker_count`: Number of workers (used to find all partial files).
 pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
-    let file_handle = get_file_handle(&output_path);
+    let file_handle = get_file_handle(&format!("{}.csv", output_path));
 
     // Read and concatenate all existing worker files
     let merged_content = (0..worker_count)

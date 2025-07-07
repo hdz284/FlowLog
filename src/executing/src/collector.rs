@@ -4,9 +4,7 @@ use macros::codegen_aggregation;
 use planning::collections::CollectionSignature;
 use reading::inspect::printsize_generic;
 use reading::rel::Rel;
-use reading::rel::Rel::*;
 use reading::row::*;
-use reading::Semiring;
 
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::reduce::ReduceCore;
@@ -33,7 +31,7 @@ pub fn non_recursive_collector<G>(
         if idb_catalog.is_aggregation() {
             let input_rel = build_concat_rel(head_signature, last_signatures, row_map, row_map);
             let aggregation = idb_catalog.aggregation();
-            let output_rel: Arc<Rel<G>> = Arc::new(codegen_aggregation!());
+            let output_rel = Arc::new(codegen_aggregation!());
             row_map.insert(Arc::clone(head_signature), output_rel);
         } else {
             let rel = build_concat_rel(head_signature, last_signatures, row_map, row_map);
@@ -66,7 +64,7 @@ pub fn recursive_collector<G>(
                 variables_next_map,
             );
             let aggregation = idb_catalog.aggregation();
-            let output_rel: Arc<Rel<G>> = Arc::new(codegen_aggregation!());
+            let output_rel = Arc::new(codegen_aggregation!());
             variables_next_map.insert(Arc::clone(head_signature), output_rel);
         } else {
             let rel = build_concat_rel(
@@ -136,3 +134,4 @@ where
     };
     rel
 }
+

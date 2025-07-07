@@ -38,21 +38,18 @@ pub fn aggregation_reduce_logic<const N_GB: usize, const N_TOT: usize>(
     aggregation: &Aggregation,
 ) -> impl FnMut(
     &Row<N_GB>,
-    &[(&Row<1>, Semiring)],
-    &mut Vec<(Row<1>, Semiring)>,
-    &mut Vec<(Row<1>, Semiring)>,
+    &[(&i32, Semiring)],
+    &mut Vec<(i32, Semiring)>,
+    &mut Vec<(i32, Semiring)>,
 ) {
     let operator = aggregation.operator().clone();
 
     move |_key, input, output, _fuel| {
-        let mut out = Row::<1>::new();
-
         // Extract values from input rows for aggregation
-        let values: Vec<i32> = input.iter().map(|(row, _)| row.column(0)).collect();
+        let values: Vec<i32> = input.iter().map(|(value, _)| **value).collect();
 
         if let Some(result) = aggregate_ints(&values, &operator) {
-            out.push(result);
-            output.push((out, semiring_one()));
+            output.push((result, semiring_one()));
         }
     }
 }
@@ -69,7 +66,7 @@ pub fn aggregation_reduce_logic<const N_GB: usize, const N_TOT: usize>(
 /// # Returns
 /// A closure that merges key-value pairs into complete rows
 pub fn aggregation_merge_kv<const N_GB: usize, const N_TOT: usize>(
-) -> impl Fn((Row<N_GB>, Row<1>)) -> Row<N_TOT> {
+) -> impl Fn((Row<N_GB>, i32)) -> Row<N_TOT> {
     move |(key, value)| {
         let mut out_row = Row::<N_TOT>::new();
 
@@ -79,7 +76,7 @@ pub fn aggregation_merge_kv<const N_GB: usize, const N_TOT: usize>(
         }
 
         // Then, add the aggregated value as the last column
-        out_row.push(value.column(0).clone());
+        out_row.push(value);
 
         out_row
     }
@@ -97,10 +94,9 @@ pub fn aggregation_merge_kv<const N_GB: usize, const N_TOT: usize>(
 /// # Returns
 /// A closure that separates rows into key-value pairs for aggregation
 pub fn aggregation_separate_kv<const N_GB: usize, const N_TOT: usize>(
-) -> impl Fn(Row<N_TOT>) -> (Row<N_GB>, Row<1>) {
+) -> impl Fn(Row<N_TOT>) -> (Row<N_GB>, i32) {
     move |row| {
         let mut group_by_row = Row::<N_GB>::new();
-        let mut aggregate_row = Row::<1>::new();
 
         // Extract the first N_GB columns as the group-by key
         for i in 0..N_GB {
@@ -108,9 +104,9 @@ pub fn aggregation_separate_kv<const N_GB: usize, const N_TOT: usize>(
         }
 
         // Extract the last column as the value to aggregate
-        aggregate_row.push(row.column(N_GB).clone());
+        let aggregate_value = row.column(N_GB).clone();
 
-        (group_by_row, aggregate_row)
+        (group_by_row, aggregate_value)
     }
 }
 
@@ -134,20 +130,17 @@ pub fn aggregation_reduce_logic_fat(
     aggregation: &Aggregation,
 ) -> impl FnMut(
     &FatRow,
-    &[(&Row<1>, Semiring)],
-    &mut Vec<(Row<1>, Semiring)>,
-    &mut Vec<(Row<1>, Semiring)>,
+    &[(&i32, Semiring)],
+    &mut Vec<(i32, Semiring)>,
+    &mut Vec<(i32, Semiring)>,
 ) {
     let operator = aggregation.operator().clone();
 
     move |_key, input, output, _fuel| {
-        let mut out = Row::<1>::new();
-
-        let values: Vec<i32> = input.iter().map(|(row, _)| row.column(0)).collect();
+        let values: Vec<i32> = input.iter().map(|(value, _)| **value).collect();
 
         if let Some(result) = aggregate_ints(&values, &operator) {
-            out.push(result);
-            output.push((out, semiring_one()));
+            output.push((result, semiring_one()));
         }
     }
 }
@@ -159,7 +152,7 @@ pub fn aggregation_reduce_logic_fat(
 ///
 /// # Returns
 /// A closure that merges key-value pairs into complete fat rows
-pub fn aggregation_merge_kv_fat() -> impl Fn((FatRow, Row<1>)) -> FatRow {
+pub fn aggregation_merge_kv_fat() -> impl Fn((FatRow, i32)) -> FatRow {
     move |(key, value)| {
         let mut out_row = FatRow::new();
 
@@ -169,7 +162,7 @@ pub fn aggregation_merge_kv_fat() -> impl Fn((FatRow, Row<1>)) -> FatRow {
         }
 
         // Append the aggregated value as the last column
-        out_row.push(value.column(0).clone());
+        out_row.push(value.clone());
 
         out_row
     }
@@ -182,10 +175,9 @@ pub fn aggregation_merge_kv_fat() -> impl Fn((FatRow, Row<1>)) -> FatRow {
 ///
 /// # Returns
 /// A closure that separates fat rows into key-value pairs for aggregation
-pub fn aggregation_separate_kv_fat() -> impl Fn(FatRow) -> (FatRow, Row<1>) {
+pub fn aggregation_separate_kv_fat() -> impl Fn(FatRow) -> (FatRow, i32) {
     move |row| {
         let mut group_by_row = FatRow::new();
-        let mut aggregate_row = Row::<1>::new();
 
         let arity = row.arity();
 
@@ -195,8 +187,8 @@ pub fn aggregation_separate_kv_fat() -> impl Fn(FatRow) -> (FatRow, Row<1>) {
         }
 
         // Extract the last column as the value to aggregate
-        aggregate_row.push(row.column(arity - 1).clone());
+        let aggregate_value = row.column(arity - 1).clone();
 
-        (group_by_row, aggregate_row)
+        (group_by_row, aggregate_value)
     }
 }

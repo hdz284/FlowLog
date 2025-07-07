@@ -1,0 +1,41 @@
+   Compiling macros v0.1.0 (/users/zhhong/FlowLog/src/macros)
+   Compiling executing v0.1.0 (/users/zhhong/FlowLog/src/executing)
+error[E0282]: type annotations needed
+   --> src/executing/src/collector.rs:33:39
+    |
+33  |             let output_rel = Arc::new(codegen_aggregation!());
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^
+    |                                       |
+    |                                       cannot infer type
+    |                                       in this macro invocation
+    |
+   ::: /users/zhhong/FlowLog/src/macros/src/lib.rs:349:1
+    |
+349 | pub fn codegen_aggregation(_: TokenStream) -> TokenStream {
+    | --------------------------------------------------------- in this expansion of `codegen_aggregation!`
+
+error[E0282]: type annotations needed
+   --> src/executing/src/collector.rs:66:39
+    |
+66  |             let output_rel = Arc::new(codegen_aggregation!());
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^
+    |                                       |
+    |                                       cannot infer type
+    |                                       in this macro invocation
+    |
+   ::: /users/zhhong/FlowLog/src/macros/src/lib.rs:349:1
+    |
+349 | pub fn codegen_aggregation(_: TokenStream) -> TokenStream {
+    | --------------------------------------------------------- in this expansion of `codegen_aggregation!`
+
+warning: unused import: `differential_dataflow::operators::reduce::ReduceCore`
+ --> src/executing/src/collector.rs:9:5
+  |
+9 | use differential_dataflow::operators::reduce::ReduceCore;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+For more information about this error, try `rustc --explain E0282`.
+warning: `executing` (lib) generated 1 warning
+error: could not compile `executing` (lib) due to 2 previous errors; 1 warning emitted
