@@ -2,7 +2,7 @@ use clap::Parser as ClapParser;
 
 use strata::stratification::Strata;
 use planning::program::ProgramQueryPlan;   
-use reading::FALLBACK_ARITY;
+use reading::{KV_MAX, ROW_MAX};
 use executing::dataflow::program_execution;
 use executing::arg::Args;
 use debugging::debugger;
@@ -14,6 +14,7 @@ use mimalloc::MiMalloc;
 static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() {
+    /* initialize tracing subscriber for logging */
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
@@ -73,11 +74,11 @@ fn main() {
     );
 
     /* Determine if fat mode should be used based on arity and user preference */
-    let use_fat_mode = program_query_plan.should_use_fat_mode(args.fat_mode(), FALLBACK_ARITY);
+    let use_fat_mode = program_query_plan.should_use_fat_mode(args.fat_mode(), KV_MAX, ROW_MAX);
     
     /* If fat mode was forced due to high arity, inform the user */
     if use_fat_mode && !args.fat_mode() {
-        warn!("WARNING: Fat mode automatically enabled due to high arity (> {})", FALLBACK_ARITY);
+        warn!("WARNING: Fat mode automatically enabled due to high arity");
         warn!("         Maximal incomparable arity pairs found: {:?}", program_query_plan.maximal_arity_pairs());
     }
     
