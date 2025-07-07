@@ -169,7 +169,6 @@ run_tests_for_binary() {
                 --program "$prog_path" \
                 --facts "$fact_path/" \
                 --csvs "$CSV_DIR/" \
-                --verbose \
                 --workers "$WORKERS" \
                 --output-result $sharing_flag
 

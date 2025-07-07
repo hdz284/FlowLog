@@ -394,23 +394,25 @@ pub fn program_execution(
                     for (recursive_signature, recursive_rel) in recursive_out_map
                         .into_iter()
                         .sorted_by_key(|(sig, _)| sig.name().to_owned())
-                    {   
+                    {
                         let rel_name = recursive_signature.name();
                         // printsize the relation
                         printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
-                        writesize_generic(&recursive_rel, &rel_name, &format!("{}size.txt", args.csvs()));
 
-                        // write to file 
-                        if args.output_result() {
-                            let full_path = format!("{}/{}", args.csvs(), rel_name);
-                            write_generic(&recursive_rel, &format!("{}.csv", rel_name), &full_path, id);
+                        // Only output if rel is IDBs
+                        if strata.program().idbs().iter().any(|idb| idb.name() == rel_name) {
+                            writesize_generic(&recursive_rel, &rel_name, &format!("{}size.txt", args.csvs()));
+                            if args.output_result() {
+                                let full_path = format!("{}{}", args.csvs(), rel_name);
+                                write_generic(&recursive_rel, &format!("{}.csv", rel_name), &full_path, id);
+                            }
                         }
-                        
+
                         // if the rel is in the row_map, it will be overwritten
                         row_map.insert(
-                            recursive_signature, 
+                            recursive_signature,
                             Arc::new(recursive_rel)
-                        ); 
+                        );
                     }
                 }
             } // end of a strata (group plan)
@@ -470,7 +472,10 @@ pub fn program_execution(
             println!("{:?}:\tFixpoint reached", timer.elapsed()); // <--- end of clock excluding output
 
             if args.output_result() {
-                merge_relation_partitions(peers);
+                for relation in strata.program().idbs() {
+                    let full_path = format!("{}/{}", args.csvs(), relation.name());
+                    merge_relation_partitions(&full_path, peers); 
+                }
             }
         }
     }).expect("execute_from_args dies");
