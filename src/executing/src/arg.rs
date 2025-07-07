@@ -19,9 +19,6 @@ pub struct Args {
     #[arg(short, long, default_value_t = false)]
     output_result: bool,
 
-    #[arg(short, long, default_value_t = false)]
-    verbose: bool,
-
     /// delimiter
     #[arg(short, long, default_value = ",")]
     delimiter: String,
@@ -51,10 +48,6 @@ impl Args {
 
     pub fn csvs(&self) -> String {
         (&self.csvs).to_owned()
-    }
-
-    pub fn verbose(&self) -> bool {
-        self.verbose
     }
 
     pub fn output_result(&self) -> bool {

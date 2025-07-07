@@ -101,10 +101,6 @@ FlowLog supports two semiring types for differential dataflow computations:
   <td align="center"><code>-w, --workers &lt;NUM&gt;</code></td>
   <td>Number of threads (default: single core)</td>
 </tr>
-<tr>
-  <td align="center"><code>-v, --verbose</code></td>
-  <td>Enable verbose logging</td>
-</tr>
 <!-- <tr>
   <td align="center"><code>-h, --help</code></td>
   <td>Print help information</td>
@@ -123,8 +119,8 @@ FlowLog supports two semiring types for differential dataflow computations:
 # Run on 16 threads and tab as delimiter
 ./target/release/executing -p ./examples/programs/tc.dl -f ./examples/csvs -d $'\t' -w 16
 
-# Run on verbose output and custom output directory
-./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./results -v
+# Run on debug output and custom output directory
+RUST_LOG=debug ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./results
 ```
 
 

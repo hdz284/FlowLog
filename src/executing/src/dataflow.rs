@@ -61,11 +61,10 @@ pub fn program_execution(
             }
 
             /* inspect edbs (optional) */
-            if args.verbose() {
-                for (signature, rel) in row_map
-                    .iter()
-                    .sorted_by_key(|(signature, _)| signature.name()) { printsize_generic(rel, &format!("[{}]", signature.name()), false); }
-            }
+            for (signature, rel) in row_map
+                .iter()
+                .sorted_by_key(|(signature, _)| signature.name()) { printsize_generic(rel, &format!("[{}]", signature.name()), false); }
+            
 
             for group_plan in group_plans.iter() {
                 if !group_plan.is_recursive() {
@@ -171,13 +170,12 @@ pub fn program_execution(
                     );
     
                     /* inspect idbs of the non-recursive strata (optional) */
-                    if args.verbose() {
-                        inspector(
-                            &group_plan.head_signatures_set(), 
-                            &mut row_map,
-                            false
-                        );
-                    }
+                    inspector(
+                        &group_plan.head_signatures_set(), 
+                        &mut row_map,
+                        false
+                    );
+                    
                 } else {
                     let recursive_out_map = scope.iterative::<Iter, _, _>(|scope| {
                         /* (1) construct iterative variables for strata idbs */ 
@@ -358,13 +356,11 @@ pub fn program_execution(
                         );
 
                         /* inspect idbs of the recursive strata (optional) */
-                        if args.verbose() {
-                            inspector(
-                                &head_signatures_set, 
-                                &mut variables_next_map,
-                                true
-                            );
-                        }
+                        inspector(
+                            &head_signatures_set, 
+                            &mut variables_next_map,
+                            true
+                        );
 
                         /* set variables and leave scope */
                         let mut variables_leave_map = HashMap::with_capacity(head_signatures_set.len());
