@@ -4,12 +4,22 @@
 
 FlowLog is an efficient, scalable and extensible Datalog engine built atop Differential Dataflow.
 
+## Project Structure
 
-## Installation
+```
+├── catalog       # Program metadata representation
+├── debugging     # Debugging utilities
+├── executing     # Runtime execution engine
+├── macros        # Rust macros
+├── optimizing    # Query optimization
+├── parsing       # Parsing datalog language
+├── planning      # Query planning
+├── reading       # File and data input components
+├── strata        # Stratification logic
+└── examples      # Example programs and datasets
+```
 
-### Prerequisites
-- Rust and Cargo (latest stable version recommended)
-- Differential Dataflow (0.14.2)
+
 
 ### Building
 ```bash
@@ -20,7 +30,7 @@ cargo build --release
 cargo build --release --features isize-type --no-default-features
 
 # Debug builds
-cargo build                                           # Present semiring (default)
+cargo build                                              # Present semiring (default)
 cargo build --features isize-type --no-default-features  # isize semiring
 ```
 
@@ -28,8 +38,8 @@ cargo build --features isize-type --no-default-features  # isize semiring
 
 FlowLog supports two semiring types for differential dataflow computations:
 
-- **Present** (default): Uses `differential_dataflow::difference::Present` for standard semantics
-- **isize**: Uses `isize` as the semiring type to enable incremental semantics
+- **Present** (default): `differential_dataflow::difference::Present` for standard semantics
+- **isize**: `isize` as the semiring type to enable incremental semantics
 
 #### Build Options
 
@@ -61,12 +71,10 @@ FlowLog supports two semiring types for differential dataflow computations:
       cargo build --release --features isize-type --no-default-features
       
       # Run on 64 threads for batik.dl program
-      ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./examples/csvs -d $'\t' -w 64 
+      ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./examples/csvs -d $'\t' -w 64
       ```
 
-## Usage
-
-### Command Options
+## Command Options
 
 <table>
 <tr>
@@ -119,10 +127,7 @@ FlowLog supports two semiring types for differential dataflow computations:
 ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./results -v
 ```
 
-**Note**: To use the isize semiring version for incremental semantics, build with:
-```bash
-cargo build --release --features isize-type --no-default-features
-```
+
 
 ### Datalog Syntax
 
@@ -144,18 +149,26 @@ count_paths(x, z, COUNT(y)) :- edge(x, y), edge(y, z).
 ```
 
 
-## Examples
+<!-- ## Examples
 
 The `examples/` directory contains several sample Datalog programs:
 
 - `examples/programs/batik.dl`: DOOP program for batik
-- `examples/programs/`: Other sample programs tested
+- `examples/programs/`: Other sample programs tested -->
 
-## Performance
+<!-- ## Testing
 
-FlowLog supports two semiring configurations:
-- **Present semiring** (default): Standard Datalog carrying set semantics
-- **isize semiring**: Incremental semantics via multiplicities (slower but supports richer semantics)
+To run all bundled correctness tests:
+
+```bash
+bash env_test.sh
+```
+This script will automatically:
+1. Download and extract the test dataset and programs
+2. Run each test program with its corresponding input
+3. Verify output files against expected results
+
+You should see ✅ PASSED for each program if everything is correct. -->
 
 
 ## Contributing
