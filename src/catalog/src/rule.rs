@@ -4,6 +4,7 @@ use parsing::rule::{Atom, AtomArg, Const, FLRule, Predicate};
 use parsing::head::{Head, HeadArg};
 use crate::atoms::{AtomSignature, AtomArgumentSignature};
 use crate::filters::BaseFilters;
+use tracing::debug;
 
 /* per-rule catalog */
 #[derive(Debug)]
@@ -468,7 +469,7 @@ impl Catalog {
             );
         }
 
-        for r in &sideway_rules { println!("{}", r); }
+        for r in &sideway_rules { debug!("{}", r); }
         sideway_rules
     }
 
@@ -535,7 +536,7 @@ impl Catalog {
         let final_rhs = cores.into_iter().chain(active_neg.into_iter()).chain(cmprs.into_iter()).collect::<Vec<Predicate>>();
 
         let final_rule = FLRule::new(final_head, final_rhs, base_rule.is_planning(), base_rule.is_sip());
-        println!("\nfinal: {}", final_rule);
+        debug!("\nfinal: {}", final_rule);
 
         // construct the final catalog by chaining forward, backward, and the final rule Catalog::from_strata(&final_rule)
         let mut sideways = forward;

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 use itertools::Itertools;
+use tracing::{debug, info};
 
 extern crate timely;
 extern crate differential_dataflow;
@@ -26,8 +27,6 @@ use reading::rel::Rel::*;
 use reading::rel::DoubleRel::*;
 use reading::reader::*; 
 use reading::inspect::*;
-
-
 
 pub fn program_execution(
     args: Args,
@@ -351,7 +350,7 @@ pub fn program_execution(
                         }
 
                         /* concatenate and threshold idbs of the recursive strata into the variables_next_map */
-                        // println!("last_signatures_map: {:?}", group_plan.last_signatures_map());
+                        // debug!("last_signatures_map: {:?}", group_plan.last_signatures_map());
                         recursive_collector(
                             group_plan.last_signatures_map(), 
                             &nest_row_map,
@@ -423,7 +422,7 @@ pub fn program_execution(
         }); 
 
         if id == 0 {
-            println!("{:?}:\tDataflow assembled", timer.elapsed());
+            info!("{:?}:\tDataflow assembled", timer.elapsed());
         }
 
         /* feeding edb data */ 
@@ -459,7 +458,7 @@ pub fn program_execution(
                 .close();
 
             if id == 0 {
-                println!("{:?}:\tData loaded for {}", timer.elapsed(), rel_name);
+                info!("{:?}:\tData loaded for {}", timer.elapsed(), rel_name);
             }
         }
 
@@ -469,12 +468,12 @@ pub fn program_execution(
         }
 
         if id == 0 {
-            println!("{:?}:\tFixpoint reached", timer.elapsed()); // <--- end of clock excluding output
+            info!("{:?}:\tFixpoint reached", timer.elapsed()); // <--- end of clock excluding output
 
             if args.output_result() {
                 for relation in strata.program().idbs() {
                     let full_path = format!("{}/{}", args.csvs(), relation.name());
-                    println!("flusing {} to {}.csv", relation.name(), full_path); // actually merging flushed partitions
+                    debug!("flusing {} to {}.csv", relation.name(), full_path); // actually merging flushed partitions
                     merge_relation_partitions(&full_path, peers); 
                 }
             }

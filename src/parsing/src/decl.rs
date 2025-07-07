@@ -122,8 +122,8 @@ impl Lexeme for RelDecl {
         /* parsing the relation name */
         let name = parsed_rule.next().unwrap().as_str(); // as_str() returns the original string of the input
 
-        // println!(".decl name = {:?}", name);
-        // println!("RelDecl attributes = {:?}", parsed_rule);
+        // debug!(".decl name = {:?}", name);
+        // debug!("RelDecl attributes = {:?}", parsed_rule);
 
         /* parsing the relation attributes */
         let attributes = parsed_rule
@@ -131,7 +131,7 @@ impl Lexeme for RelDecl {
             .unwrap()
             .into_inner()
             .map(|attr| {
-                // println!(".decl attribute = {:?}", attr);
+                // debug!(".decl attribute = {:?}", attr);
                 let mut attr = attr.into_inner();
                 let name = attr.next().unwrap().as_str();
                 let data_type = attr.next().unwrap().as_str();

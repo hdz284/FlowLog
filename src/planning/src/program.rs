@@ -2,6 +2,7 @@ use std::fmt;
 use std::sync::Arc;
 // use itertools::Itertools;
 use std::collections::HashSet;
+use tracing::debug;
 
 // use parsing::rule::FLRule;
 use strata::stratification::Strata;
@@ -61,8 +62,8 @@ impl ProgramQueryPlan {
 
         // debugging for each rule plan in the group
         for (is_recursive, rule_plans) in &rule_plans {
-            println!("-------------------------------- {} strata group --------------------------------", if *is_recursive { "recursive" } else { "non-recursive" });
-            for rule_plan in rule_plans { println!("{}", rule_plan); }
+            debug!("-------------------------------- {} strata group --------------------------------", if *is_recursive { "recursive" } else { "non-recursive" });
+            for rule_plan in rule_plans { debug!("{}", rule_plan); }
         }
 
         // accumulative seen seet across all strata

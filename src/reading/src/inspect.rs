@@ -16,6 +16,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use timely::dataflow::Scope;
 use timely::order::TotalOrder;
+use tracing::{debug, error};
 
 use crate::rel::Rel;
 use crate::semiring_one;
@@ -68,7 +69,7 @@ where
         .lift(|_| Some(((), 1 as i32)))
         .map(|_| ())
         .consolidate()
-        .inspect(move |x| println!("{}: {:?}", prefix, x));
+        .inspect(move |x| debug!("{}: {:?}", prefix, x));
 }
 
 /// Prints the content of a relation (all tuples)
@@ -83,7 +84,7 @@ where
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .lift(|x| Some((x, 1 as i32)))
         .inspect(move |(data, time, delta)| {
-            println!("{}: ({}, {:?}, {})", name, data, time, delta)
+            debug!("{}: ({}, {:?}, {})", name, data, time, delta)
         }); // use std::fmt::Display for D (i.e. Row)
 }
 
@@ -253,7 +254,7 @@ pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
             match read_to_string(&part_path) {
                 Ok(content) => Some(content),
                 Err(_) => {
-                    eprintln!("Warning: missing or unreadable file {}", part_path);
+                    error!("Warning: missing or unreadable file {}", part_path);
                     None
                 }
             }
@@ -264,7 +265,7 @@ pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
     let mut file = file_handle.lock().unwrap();
     // Dump the merged content into the main output file
     if let Err(e) = file.write_all(merged_content.as_bytes()) {
-        eprintln!("Error to write merged file {}: {}", output_path, e);
+        error!("Error to write merged file {}: {}", output_path, e);
     }
 
     // Attempt to remove all partial files, ignore failure
@@ -282,5 +283,5 @@ pub fn close_all_files() {
         let mut handles_ref = handles.borrow_mut();
         handles_ref.clear(); // Dropping all Arc<Mutex<File>> will close the files
     });
-    println!("All output files closed");
+    debug!("All output files closed");
 }

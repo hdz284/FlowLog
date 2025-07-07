@@ -31,8 +31,9 @@ macros = { path = "../macros", default-features = false }
 
 clap = { workspace = true, features = ["derive"] }
 itertools = { workspace = true }
-
 timely = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 differential-dataflow = { workspace = true }
 
 # timely = "0.12.0"

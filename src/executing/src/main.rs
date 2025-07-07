@@ -6,13 +6,20 @@ use reading::FALLBACK_ARITY;
 use executing::dataflow::program_execution;
 use executing::arg::Args;
 use debugging::debugger;
-
+use tracing::{warn, info};
+use tracing_subscriber::EnvFilter;
 use mimalloc::MiMalloc;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .init();
+
     /* CL args parsing */
     let args = Args::parse(); 
     
@@ -20,7 +27,6 @@ fn main() {
         "Arguments", 
         false, 
         format!("{:#?}", args), 
-        args.verbose()
     );
 
     /* (1) program parsing */
@@ -30,7 +36,6 @@ fn main() {
         "Parsed Program",
         false,
         format!("{}", program),
-        args.verbose()
     );
 
     /* (2) stratification */
@@ -40,7 +45,6 @@ fn main() {
         "Strata",
         false,
         format!("{}\n{}", strata.dependency_graph(), strata),
-        args.verbose()
     );
 
     /* (3) planning (catalog and query plan) */
@@ -50,7 +54,6 @@ fn main() {
         "Program Query Plans", 
         true, 
         format!("{}", program_query_plan), 
-        true
     );
 
     /* arity analysis */
@@ -67,7 +70,6 @@ fn main() {
                 .collect::<Vec<_>>()
                 .join("\n")
         ),
-        true
     );
 
     /* Determine if fat mode should be used based on arity and user preference */
@@ -75,8 +77,8 @@ fn main() {
     
     /* If fat mode was forced due to high arity, inform the user */
     if use_fat_mode && !args.fat_mode() {
-        println!("WARNING: Fat mode automatically enabled due to high arity (> {})", FALLBACK_ARITY);
-        println!("         Maximal incomparable arity pairs found: {:?}", program_query_plan.maximal_arity_pairs());
+        warn!("WARNING: Fat mode automatically enabled due to high arity (> {})", FALLBACK_ARITY);
+        warn!("         Maximal incomparable arity pairs found: {:?}", program_query_plan.maximal_arity_pairs());
     }
     
     /* (4) executing (dataflow) */
@@ -87,7 +89,7 @@ fn main() {
         use_fat_mode,
     );
 
-    println!("success query");
+    info!("success query");
 }
 
 

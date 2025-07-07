@@ -1,12 +1,20 @@
 use parsing::parser::Lexeme;
 use parsing::{FlowLogParser, Parser, Rule};
 use std::fs;
+use tracing::{info};
 
 use strata::stratification::Strata;
 use planning::program::ProgramQueryPlan;   
+use tracing_subscriber::EnvFilter;
 // use strata::dependencies::DependencyGraph;
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .init();
+
     let program_source = "./examples/programs/ddisasm-test.dl";
     let unparsed_str = fs::read_to_string(program_source)
         .unwrap_or_else(|_| panic!("can't read program from \"{}\"", program_source));
@@ -32,7 +40,6 @@ fn main() {
         "Strata (Topological Order)",
         true,
         format!("{}\n", strata),
-        true
     );
 
     // planning
@@ -41,8 +48,7 @@ fn main() {
     debugging::debugger::display_info(
         "Program Query Plans", 
         true, 
-        format!("{}", program_query_plan), 
-        true);
+        format!("{}", program_query_plan));
 
     /* arity analysis */
     debugging::debugger::display_info(
@@ -57,8 +63,7 @@ fn main() {
                 .collect::<Vec<_>>()
                 .join("\n")
         ),
-        true
     );
 
-    println!("success planning");
+    info!("success planning");
 }

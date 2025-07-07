@@ -141,7 +141,7 @@ run_single_test() {
     mkdir -p "$CSV_DIR"
 
     # Run the binary
-    "$BINARY_PATH" \
+    RUST_LOG=info "$BINARY_PATH" \
         --program "$prog_path" \
         --facts "$fact_path" \
         --csvs "$CSV_DIR" \

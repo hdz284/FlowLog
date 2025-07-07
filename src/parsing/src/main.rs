@@ -1,8 +1,16 @@
 use parsing::parser::Lexeme;
 use parsing::{FlowLogParser, Parser, Rule};
 use std::fs;
+use tracing::{info, debug};
+use tracing_subscriber::EnvFilter;
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .init();
+
     let program_source = "./examples/programs/greater_equal.dl";
     let unparsed_str = fs::read_to_string(program_source)
         .unwrap_or_else(|_| panic!("can't read program from \"{}\"", program_source));
@@ -23,12 +31,12 @@ fn main() {
     // print_rule(parsed_rule, 0); // print the parsed rule
     // print_rule_as_tree(parsed_rule, 0, true); // print the parsed rule as a tree
    
-    println!(
+    debug!(
         "{}",
         parsing::parser::Program::from_parsed_rule(parsed_rule)
     );
 
-    println!("success parse");
+    info!("success parse");
 }
 
 // fn print_rule(rule: pest::iterators::Pair<Rule>, depth: usize) {
@@ -37,7 +45,7 @@ fn main() {
 //     let rule_span = rule.as_span();              // returns a span of the input string
 //     let rule_str = rule_span.as_str();           // returns a string slice of the input string
 
-//     println!("{}{:?} >> {}", indent, rule_name, rule_str); 
+//     debug!("{}{:?} >> {}", indent, rule_name, rule_str); 
     
 //     rule.into_inner()
 //         .for_each(|rule| print_rule(rule, depth + 1));
@@ -58,9 +66,9 @@ fn main() {
 
 //     // print the rule with tree structure
 //     if rule_str.len() > 240 {
-//         println!("{}{} >> ({:.240}...)", indent, rule_name, rule_str);
+//         debug!("{}{} >> ({:.240}...)", indent, rule_name, rule_str);
 //     } else {
-//         println!("{}{} >> ({})", indent, rule_name, rule_str);
+//         debug!("{}{} >> ({})", indent, rule_name, rule_str);
 //     }
 
 //     // transform into inner pairs and print them as part of the tree

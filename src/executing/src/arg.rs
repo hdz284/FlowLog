@@ -80,10 +80,3 @@ impl Args {
         ]
     }
 }
-
-
-
-pub fn test() {
-    let args = Args::parse();
-    println!("{:?}", args);
-}
