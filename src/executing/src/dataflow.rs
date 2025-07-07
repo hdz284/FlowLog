@@ -61,9 +61,13 @@ pub fn program_execution(
             }
 
             /* inspect edbs (optional) */
-            for (signature, rel) in row_map
-                .iter()
-                .sorted_by_key(|(signature, _)| signature.name()) { printsize_generic(rel, &format!("[{}]", signature.name()), false); }
+            if tracing::level_enabled!(tracing::Level::DEBUG) {
+                for (signature, rel) in row_map
+                    .iter()
+                    .sorted_by_key(|(signature, _)| signature.name()) {
+                    printsize_generic(rel, &format!("[{}]", signature.name()), false);
+                }
+            }
             
 
             for group_plan in group_plans.iter() {
