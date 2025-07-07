@@ -170,11 +170,13 @@ pub fn program_execution(
                     );
     
                     /* inspect idbs of the non-recursive strata (optional) */
-                    inspector(
-                        &group_plan.head_signatures_set(), 
-                        &mut row_map,
-                        false
-                    );
+                    if tracing::level_enabled!(tracing::Level::DEBUG) {
+                        inspector(
+                            &group_plan.head_signatures_set(), 
+                            &mut row_map,
+                            false
+                        );
+                    }
                     
                 } else {
                     let recursive_out_map = scope.iterative::<Iter, _, _>(|scope| {
@@ -356,11 +358,13 @@ pub fn program_execution(
                         );
 
                         /* inspect idbs of the recursive strata (optional) */
-                        inspector(
-                            &head_signatures_set, 
-                            &mut variables_next_map,
-                            true
-                        );
+                        if tracing::level_enabled!(tracing::Level::DEBUG) {
+                            inspector(
+                                &head_signatures_set, 
+                                &mut variables_next_map,
+                                true
+                            );
+                        }
 
                         /* set variables and leave scope */
                         let mut variables_leave_map = HashMap::with_capacity(head_signatures_set.len());
