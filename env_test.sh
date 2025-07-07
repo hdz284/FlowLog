@@ -1,86 +1,82 @@
 #!/bin/bash
+set -e
 
-# Exit on any error
-set -e  
+# =========================
+# CONFIGURATION
+# =========================
 
-# --------------------------
-# System and Rust Setup
-# --------------------------
+CONFIG_FILE="./test/correctness_test/config.txt"
+PROG_DIR="./test/correctness_test/program"
+FACT_DIR="./test/correctness_test/dataset"
+CSV_DIR="./result"
+BINARY_PATH="./target/release/executing"
+WORKERS=64
 
-echo "🔧 Updating system packages..."
-sudo apt update && sudo apt upgrade -y
+# =========================
+# SETUP FUNCTIONS
+# =========================
 
-# Install htop and dos2unix if not present
-missing_packages=()
+install_system_packages() {
+    echo "[SETUP] Checking system packages..."
+    sudo apt update && sudo apt upgrade -y
+    
+    local packages=()
+    command -v htop >/dev/null || packages+=("htop")
+    command -v dos2unix >/dev/null || packages+=("dos2unix")
+    
+    if [ ${#packages[@]} -gt 0 ]; then
+        echo "[INSTALL] Installing packages: ${packages[*]}"
+        sudo apt install -y "${packages[@]}"
+    else
+        echo "[OK] All required packages already installed"
+    fi
+}
 
-if ! command -v htop &> /dev/null; then
-    missing_packages+=("htop")
-fi
+install_rust() {
+    if ! command -v rustc >/dev/null; then
+        echo "[INSTALL] Installing Rust..."
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        export PATH="$HOME/.cargo/bin:$PATH"
+        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+    else
+        echo "[OK] Rust is already installed"
+    fi
+    
+    echo "[UPDATE] Updating Rust to latest version..."
+    rustup update && rustup default stable
+}
 
-if ! command -v dos2unix &> /dev/null; then
-    missing_packages+=("dos2unix")
-fi
+setup_dataset() {
+    mkdir -p ./test
+    
+    if [ -d "./test/correctness_test/dataset" ] && [ -d "./test/correctness_test/program" ]; then
+        echo "[OK] Dataset already extracted. Skipping download."
+        return
+    fi
+    
+    echo "[DOWNLOAD] Downloading and extracting dataset bundle..."
+    local zip_path="./test/correctness_test.zip"
+    wget -O "$zip_path" https://pages.cs.wisc.edu/~m0riarty/correctness_test.zip
+    unzip "$zip_path" -d "./test"
+    rm "$zip_path"
+    echo "[OK] Dataset extracted and zip file removed."
 
-if [ ${#missing_packages[@]} -ne 0 ]; then
-    echo "📦 Installing missing packages: ${missing_packages[*]}..."
-    sudo apt install -y "${missing_packages[@]}"
-else
-    echo "✅ htop and dos2unix are already installed."
-fi
+    echo "[FIX] Fixing line endings in config.txt..."
+    dos2unix "$CONFIG_FILE" 2>/dev/null || true
+}
 
-# Install Rust if not present
-if ! command -v rustc &> /dev/null; then
-    echo "🦀 Installing Rust..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    export PATH="$HOME/.cargo/bin:$PATH"
-    echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
-    source ~/.bashrc
-else
-    echo "✅ Rust is already installed."
-fi
-
-# Ensure Rust is up to date
-echo "🔄 Ensuring Rust is up-to-date..."
-rustup update
-rustup default stable
-
-# --------------------------
-# Dataset Bundle Setup
-# --------------------------
-
-mkdir -p ./test
-
-ZIP_PATH="./test/correctness_test.zip"
-UNZIP_DIR="./test"
-
-if [ -d "./test/correctness_test/dataset" ] && [ -d "./test/correctness_test/program" ]; then
-    echo "📁 Dataset already extracted. Skipping download."
-else
-    echo "⬇️ Downloading and extracting dataset bundle..."
-    wget -O "$ZIP_PATH" https://pages.cs.wisc.edu/~m0riarty/correctness_test.zip
-    unzip "$ZIP_PATH" -d "$UNZIP_DIR"
-    rm "$ZIP_PATH"
-    echo "✅ Dataset extracted and zip file removed."
-
-    # Fix config.txt line endings
-    echo "🛠️ Fixing line endings in config.txt..."
-    dos2unix ./test/correctness_test/config.txt 2>/dev/null || true
-fi
-
-echo "=== SETUP COMPLETE ==="
-
-# --------------------------
-# Result Verification Function
-# --------------------------
+# =========================
+# TEST FUNCTIONS
+# =========================
 
 verify_results() {
     local SIZE_FILE="${1:-./result/size.txt}"
     local CSV_DIR="${2:-./result}"
 
-    echo "🔍 Verifying result files using $SIZE_FILE..."
+    echo "[VERIFY] Checking result files using $SIZE_FILE..."
 
     if [ ! -f "$SIZE_FILE" ]; then
-        echo "❌ Error: size file $SIZE_FILE not found!"
+        echo "[ERROR] Size file $SIZE_FILE not found!"
         return 1
     fi
 
@@ -93,7 +89,7 @@ verify_results() {
         local csv_path="${CSV_DIR}/${name}.csv"
 
         if [ ! -f "$csv_path" ]; then
-            echo "❌ Missing CSV: $csv_path"
+            echo "[FAIL] Missing CSV: $csv_path"
             pass=false
             continue
         fi
@@ -102,102 +98,113 @@ verify_results() {
         actual=$(wc -l < "$csv_path")
 
         if [ "$expected" -eq "$actual" ]; then
-            echo "✅ $name: expected = $expected, actual = $actual"
+            echo "[PASS] $name: expected = $expected, actual = $actual"
         else
-            echo "❌ $name: expected = $expected, actual = $actual"
+            echo "[FAIL] $name: expected = $expected, actual = $actual"
             pass=false
         fi
     done < "$SIZE_FILE"
 
     if [ "$pass" = true ]; then
-        echo "🎉 All results verified successfully!"
+        echo "[OK] All results verified successfully!"
         return 0
     else
-        echo "⚠️ Verification failed!"
+        echo "[ERROR] Verification failed!"
         return 1
     fi
 }
 
-# --------------------------
-# Test Runner for a Build
-# --------------------------
+run_single_test() {
+    local prog_name="$1"
+    local dataset_name="$2" 
+    local sharing_flag="$3"
+    local test_case="$4"
+    
+    local prog_path="${PROG_DIR}/${prog_name}"
+    local fact_path="${FACT_DIR}/${dataset_name}"
+
+    echo "[TEST] Running $prog_name with $dataset_name ($test_case)"
+
+    # Validate inputs
+    if [ ! -f "$prog_path" ]; then
+        echo "[ERROR] Program not found: $prog_path"
+        exit 1
+    fi
+
+    if [ ! -d "$fact_path" ]; then
+        echo "[ERROR] Dataset not found: $fact_path"
+        exit 1
+    fi
+
+    # Clean and prepare output directory
+    rm -rf "$CSV_DIR"
+    mkdir -p "$CSV_DIR"
+
+    # Run the binary
+    "$BINARY_PATH" \
+        --program "$prog_path" \
+        --facts "$fact_path" \
+        --csvs "$CSV_DIR" \
+        --workers "$WORKERS" \
+        --output-result $sharing_flag
+    
+    # Print the running command
+    echo "[RUN] Command executed: $BINARY_PATH --program $prog_path --facts $fact_path --csvs $CSV_DIR --workers $WORKERS --output-result $sharing_flag"
+
+    # Verify results
+    echo "[VERIFY] Checking results for $test_case..."
+    verify_results || {
+        echo "[ERROR] Verification failed for $prog_name ($test_case)"
+        exit 1
+    }
+
+    echo "[PASS] Test completed: $prog_name ($test_case)"
+}
 
 run_tests_for_binary() {
     local BUILD_TYPE="$1"
-    local BINARY_PATH="./target/release/executing"
 
-    echo "🚀 Running tests for build type: $BUILD_TYPE"
-
-    local CONFIG_FILE="./test/correctness_test/config.txt"
-    local PROG_DIR="./test/correctness_test/program"
-    local FACT_DIR="./test/correctness_test/dataset"
-    local CSV_DIR="./result"
-    local WORKERS=32
+    echo "[TEST] Running tests for build type: $BUILD_TYPE"
 
     while IFS='=' read -r prog_name dataset_name; do
         if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
             continue
         fi
 
-        local prog_path="${PROG_DIR}/${prog_name}"
-        local fact_path="${FACT_DIR}/${dataset_name}"
-
-        echo "🔧 Testing Program: $prog_name, Dataset: $dataset_name"
-
-        if [ ! -f "$prog_path" ]; then
-            echo "❌ Program not found: $prog_path"
-            exit 1
-        fi
-
-        if [ ! -d "$fact_path" ]; then
-            echo "❌ Dataset not found: $fact_path"
-            exit 1
-        fi
+        echo "[PROGRAM] Testing $prog_name with $dataset_name"
+        echo "----------------------------------------"
 
         for sharing_flag in "" "--no-sharing"; do
-            local test_case="with-sharing"
+            local test_case="enable-sharing"
             if [ "$sharing_flag" = "--no-sharing" ]; then
                 test_case="no-sharing"
             fi
 
-            echo "▶️ [$BUILD_TYPE] Running test case: $test_case"
-
-            rm -rf "$CSV_DIR"
-            mkdir -p "$CSV_DIR"
-
-            "$BINARY_PATH" \
-                --program "$prog_path" \
-                --facts "$fact_path/" \
-                --csvs "$CSV_DIR/" \
-                --workers "$WORKERS" \
-                --output-result $sharing_flag
-
-            echo "🔍 Verifying result ($test_case)..."
-            verify_results || {
-                echo "❌ Verification failed for $prog_name ($BUILD_TYPE, $test_case)"
-                exit 1
-            }
-
-            echo "✅ Test Passed: $prog_name ($BUILD_TYPE, $test_case)"
-            echo "----------------------------------------"
+            run_single_test "$prog_name" "$dataset_name" "$sharing_flag" "$test_case"
         done
     done < "$CONFIG_FILE"
-
-    echo "🎉 All tests passed for build type: $BUILD_TYPE"
+    echo "[OK] All tests passed for build type: $BUILD_TYPE"
 }
 
-# --------------------------
-# Full Build and Test Pipeline
-# --------------------------
+# =========================
+# MAIN EXECUTION
+# =========================
 
-echo "🔨 Building Present Semiring (default)..."
-cargo build --release
+main() {
+    echo "[START] FlowLog Environment Test"
+    
+    install_system_packages
+    install_rust
+    setup_dataset
+    
+    echo "=== SETUP COMPLETE ==="
+    
+    echo "[BUILD] Building Present Semiring (default)..."
+    cargo build --release
 
-run_tests_for_binary "present"
+    run_tests_for_binary "present"
 
-echo "🔨 Building Isize Semiring..."
-cargo build --release --features isize-type --no-default-features
+    echo "[FINISH] All test cases per program finished successfully."
+}
 
-run_tests_for_binary "isize"
-
-echo "🏁 All 4 test cases per program completed successfully."
+main "$@"

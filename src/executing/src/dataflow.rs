@@ -399,12 +399,12 @@ pub fn program_execution(
                         // printsize the relation
                         printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
 
-                        // Only output if rel is IDBs
+                        // only output if rel is IDBs
                         if strata.program().idbs().iter().any(|idb| idb.name() == rel_name) {
-                            writesize_generic(&recursive_rel, &rel_name, &format!("{}size.txt", args.csvs()));
+                            writesize_generic(&recursive_rel, &rel_name, &format!("{}/size.txt", args.csvs()));
                             if args.output_result() {
-                                let full_path = format!("{}{}", args.csvs(), rel_name);
-                                write_generic(&recursive_rel, &format!("{}.csv", rel_name), &full_path, id);
+                                let full_path = format!("{}/{}", args.csvs(), rel_name);
+                                write_generic(&recursive_rel, &full_path, id);
                             }
                         }
 
@@ -474,6 +474,7 @@ pub fn program_execution(
             if args.output_result() {
                 for relation in strata.program().idbs() {
                     let full_path = format!("{}/{}", args.csvs(), relation.name());
+                    println!("flusing {} to {}.csv", relation.name(), full_path); // actually merging flushed partitions
                     merge_relation_partitions(&full_path, peers); 
                 }
             }

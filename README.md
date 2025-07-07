@@ -19,31 +19,7 @@ FlowLog is an efficient, scalable and extensible Datalog engine built atop Diffe
 └── examples      # Example programs and datasets
 ```
 
-## Installation
 
-### Prerequisites
-- Rust and Cargo (latest stable version recommended)
-- Differential Dataflow (0.14.2)
-
-### Required Dependency Modification
-
-Before building, you need to modify the differential dataflow crate (version 0.13.7) by adding the following function to `differential_dataflow::collection.rs` at line 329 (after the `explode` function):
-
-```rust
-/// (udf) Brute-force replaces each record with another w/ a new difference type.
-///
-pub fn expand<D2, R2, I, L>(&self, mut logic: L) -> Collection<G, D2, R2>
-where
-    D2: Data,
-    R2: Semigroup + 'static,
-    I: IntoIterator<Item = (D2, R2)>,
-    L: FnMut(D) -> I + 'static,
-{
-    self.inner
-        .flat_map(move |(x, t, _)| logic(x).into_iter().map(move |(x, d2)| (x, t.clone(), d2)))
-        .as_collection()
-}
-```
 
 ### Building
 ```bash
@@ -54,7 +30,7 @@ cargo build --release
 cargo build --release --features isize-type --no-default-features
 
 # Debug builds
-cargo build                                           # Present semiring (default)
+cargo build                                              # Present semiring (default)
 cargo build --features isize-type --no-default-features  # isize semiring
 ```
 
@@ -62,8 +38,8 @@ cargo build --features isize-type --no-default-features  # isize semiring
 
 FlowLog supports two semiring types for differential dataflow computations:
 
-- **Present** (default): Uses `differential_dataflow::difference::Present` for standard semantics
-- **isize**: Uses `isize` as the semiring type to enable incremental semantics
+- **Present** (default): `differential_dataflow::difference::Present` for standard semantics
+- **isize**: `isize` as the semiring type to enable incremental semantics
 
 #### Build Options
 
@@ -95,12 +71,10 @@ FlowLog supports two semiring types for differential dataflow computations:
       cargo build --release --features isize-type --no-default-features
       
       # Run on 64 threads for batik.dl program
-      ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./examples/csvs -d $'\t' -w 64 
+      ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./examples/csvs -d $'\t' -w 64
       ```
 
-## Usage
-
-### Command Options
+## Command Options
 
 <table>
 <tr>
@@ -153,10 +127,7 @@ FlowLog supports two semiring types for differential dataflow computations:
 ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./results -v
 ```
 
-**Note**: To use the isize semiring version for incremental semantics, build with:
-```bash
-cargo build --release --features isize-type --no-default-features
-```
+
 
 ### Datalog Syntax
 
@@ -178,14 +149,14 @@ count_paths(x, z, COUNT(y)) :- edge(x, y), edge(y, z).
 ```
 
 
-## Examples
+<!-- ## Examples
 
 The `examples/` directory contains several sample Datalog programs:
 
 - `examples/programs/batik.dl`: DOOP program for batik
-- `examples/programs/`: Other sample programs tested
+- `examples/programs/`: Other sample programs tested -->
 
-## Testing
+<!-- ## Testing
 
 To run all bundled correctness tests:
 
@@ -197,13 +168,7 @@ This script will automatically:
 2. Run each test program with its corresponding input
 3. Verify output files against expected results
 
-You should see ✅ PASSED for each program if everything is correct.
-
-## Performance
-
-FlowLog supports two semiring configurations:
-- **Present semiring** (default): Standard Datalog carrying set semantics
-- **isize semiring**: Incremental semantics via multiplicities (slower but supports richer semantics)
+You should see ✅ PASSED for each program if everything is correct. -->
 
 
 ## Contributing
