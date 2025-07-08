@@ -9,3 +9,5 @@ edition = "2021"
 parsing = { path = "../parsing" }  
 strata = { path = "../strata" }  
 debugging = { path = "../debugging" }  
+
+tracing = { workspace = true }

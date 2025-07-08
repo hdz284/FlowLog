@@ -2,6 +2,7 @@ use std::fmt;
 use std::sync::Arc;
 // use itertools::Itertools;
 use std::collections::HashSet;
+use tracing::debug;
 
 // use parsing::rule::FLRule;
 use strata::stratification::Strata;
@@ -61,8 +62,8 @@ impl ProgramQueryPlan {
 
         // debugging for each rule plan in the group
         for (is_recursive, rule_plans) in &rule_plans {
-            println!("-------------------------------- {} strata group --------------------------------", if *is_recursive { "recursive" } else { "non-recursive" });
-            for rule_plan in rule_plans { println!("{}", rule_plan); }
+            debug!("-------------------------------- {} strata group --------------------------------", if *is_recursive { "recursive" } else { "non-recursive" });
+            for rule_plan in rule_plans { debug!("{}", rule_plan); }
         }
 
         // accumulative seen seet across all strata
@@ -157,13 +158,13 @@ impl ProgramQueryPlan {
     }
 
     /// Determines if fat mode should be used based on the maximum arity required.
-    /// Fat mode is REQUIRED for arities > fallback_arity (usually 3 or 8),
+    /// Fat mode is REQUIRED for arities > fallback_arity 
     /// as the fixed-size array implementations only support up to this arity.
-    pub fn should_use_fat_mode(&self, user_requested_fat_mode: bool, fallback_arity: usize) -> bool {
+    pub fn should_use_fat_mode(&self, user_requested_fat_mode: bool, fallback_key: usize, fallback_value: usize) -> bool {
         // If any key or value arity exceeds fallback_arity, fat mode must be used
         // Otherwise, it depends on the user's command-line argument
         let maximal_pairs = self.maximal_arity_pairs();
-        let any_exceeds_fallback = maximal_pairs.iter().any(|(k, v)| *k > fallback_arity || *v > fallback_arity);
+        let any_exceeds_fallback = maximal_pairs.iter().any(|(k, v)| *k > fallback_key || *v > fallback_value);
         any_exceeds_fallback || user_requested_fat_mode
     }
 

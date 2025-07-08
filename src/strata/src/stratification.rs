@@ -165,7 +165,7 @@ impl Strata {
                       .collect()
             })
             .collect();
-        // println!("strata_dependencies: {:?}", strata_dependencies);
+        // debug!("strata_dependencies: {:?}", strata_dependencies);
 
         let mut merged = vec![false; strata.len()];
         let mut mergers = Vec::new();
@@ -177,7 +177,7 @@ impl Strata {
             for (i, s) in strata.iter().enumerate() {
                 if !merged[i] && strata_dependencies[i].is_empty() { // not yet merged and no dependencies
                     merged[i] = true;
-                    // println!("merging stratum: {:?}", s);
+                    // debug!("merging stratum: {:?}", s);
                     if is_recursive_strata_bitmap[i] {
                         next_recursive.push(s.clone()); // batch non-recursive strata
                     } else {
@@ -194,8 +194,8 @@ impl Strata {
                 );
             }
 
-            // println!("next non-recursive strata: {:?}", next_non_recursive);
-            // println!("next recursive strata: {:?}", next_recursive);
+            // debug!("next non-recursive strata: {:?}", next_non_recursive);
+            // debug!("next recursive strata: {:?}", next_recursive);
             
             if !next_non_recursive.is_empty() { 
                 mergers.push(next_non_recursive); 
@@ -208,7 +208,7 @@ impl Strata {
             }
         }
 
-        // println!("merged strata: {:?}", mergers);
+        // debug!("merged strata: {:?}", mergers);
         // --------------------------------------------------------------------------- //
             
         Self {

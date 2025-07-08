@@ -12,6 +12,8 @@ use differential_dataflow::operators::iterate::SemigroupVariable;
 use timely::dataflow::Scope;
 use timely::order::Product;
 
+use tracing::debug;
+
 use parsing::decl::RelDecl;
 use crate::row::Row;
 use crate::row::FatRow;
@@ -56,7 +58,7 @@ macro_rules! generate_read_row_functions {
                     let rel_arity = rel_decl.arity();
 
                     if id == 0 {
-                        println!("reading {} from {}", rel_decl, rel_path);
+                        debug!("reading {} from {}", rel_decl, rel_path);
                     }
 
                     let ingest = 
@@ -206,7 +208,7 @@ macro_rules! generate_read_row_generic {
                             [<read_row_ $n>](rel_decl, rel_path, delimiter, &mut session_generic.[<listen_ $n>](), id, peers)
                         },
                     )*
-                    _ => unreachable!("arity {} should be handled by match arms if <= MAX_FALLBACK_ARITY", arity),
+                    _ => unreachable!("arity {} should be handled by match arms if <= MAX_ROW_ARITY", arity),
                 }
             } else {
                 // fat mode
@@ -239,7 +241,7 @@ macro_rules! generate_construct_var {
                             Rel::[<Variable $n>](SemigroupVariable::<_, Row<$n>, Semiring>::new(scope, Product::new(Default::default(), 1)))
                         },
                     )*
-                    _ => unreachable!("arity {} should be handled by match arms if <= MAX_FALLBACK_ARITY", arity),
+                    _ => unreachable!("arity {} should be handled by match arms if <= MAX_ROW_ARITY", arity),
                 }
             } else {
                 // fat mode

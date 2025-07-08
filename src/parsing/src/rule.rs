@@ -2,6 +2,8 @@ use crate::{head::Head, parser::Lexeme, Rule};
 use pest::iterators::Pair;
 use crate::compare::ComparisonExpr;
 use std::fmt;
+use tracing::error;
+
 
 /*
     Atom: NAME(AtomArg, AtomArg, ...)
@@ -89,7 +91,7 @@ impl Lexeme for Const {
         match inner.as_rule() {
             Rule::integer => Self::Integer(inner.as_str().parse::<i32>().unwrap()),
             Rule::string => Self::Text(inner.as_str().to_string()),
-            _ => { println!("constant parsing panic {:?}", inner); unreachable!() }
+            _ => { error!("constant parsing panic {:?}", inner); unreachable!() }
         }
     }
 }
