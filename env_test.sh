@@ -140,6 +140,9 @@ run_single_test() {
     rm -rf "$CSV_DIR"
     mkdir -p "$CSV_DIR"
 
+    # Print the running command
+    echo "[RUN] Command executing: RUST_LOG=info $BINARY_PATH --program $prog_path --facts $fact_path --csvs $CSV_DIR --workers $WORKERS $sharing_flag"
+
     # Run the binary
     RUST_LOG=info "$BINARY_PATH" \
         --program "$prog_path" \
@@ -147,9 +150,6 @@ run_single_test() {
         --csvs "$CSV_DIR" \
         --workers "$WORKERS" \
         $sharing_flag
-    
-    # Print the running command
-    echo "[RUN] Command executed: $BINARY_PATH --program $prog_path --facts $fact_path --csvs $CSV_DIR --workers $WORKERS --output-result $sharing_flag"
 
     # Verify results
     echo "[VERIFY] Checking results for $test_case..."
