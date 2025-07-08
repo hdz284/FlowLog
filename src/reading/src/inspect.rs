@@ -16,7 +16,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use timely::dataflow::Scope;
 use timely::order::TotalOrder;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 use crate::rel::Rel;
 use crate::semiring_one;
@@ -69,7 +69,7 @@ where
         .lift(|_| Some(((), 1 as i32)))
         .map(|_| ())
         .consolidate()
-        .inspect(move |x| debug!("{}: {:?}", prefix, x));
+        .inspect(move |x| info!("{}: {:?}", prefix, x));
 }
 
 /// Prints the content of a relation (all tuples)

@@ -146,7 +146,7 @@ run_single_test() {
         --facts "$fact_path" \
         --csvs "$CSV_DIR" \
         --workers "$WORKERS" \
-        --output-result $sharing_flag
+        $sharing_flag
     
     # Print the running command
     echo "[RUN] Command executed: $BINARY_PATH --program $prog_path --facts $fact_path --csvs $CSV_DIR --workers $WORKERS --output-result $sharing_flag"

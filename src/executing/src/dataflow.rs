@@ -402,14 +402,15 @@ pub fn program_execution(
                         // printsize the relation
                         printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
 
-                        // only output if rel is IDBs
-                        if strata.program().idbs().iter().any(|idb| idb.name() == rel_name) {
-                            writesize_generic(&recursive_rel, &rel_name, &format!("{}/size.txt", args.csvs()));
-                            if args.output_result() {
-                                let full_path = format!("{}/{}", args.csvs(), rel_name);
+                        if let Some(csv_path) = args.csvs() {
+                            // only output if rel is IDBs
+                            if strata.program().idbs().iter().any(|idb| idb.name() == rel_name) {
+                                writesize_generic(&recursive_rel, &rel_name, &format!("{}/size.txt", csv_path));
+                                let full_path = format!("{}/{}", csv_path, rel_name);
                                 write_generic(&recursive_rel, &full_path, id);
                             }
                         }
+                        
 
                         // if the rel is in the row_map, it will be overwritten
                         row_map.insert(
@@ -474,9 +475,9 @@ pub fn program_execution(
         if id == 0 {
             info!("{:?}:\tFixpoint reached", timer.elapsed()); // <--- end of clock excluding output
 
-            if args.output_result() {
+            if let Some(csv_path) = args.csvs() {
                 for relation in strata.program().idbs() {
-                    let full_path = format!("{}/{}", args.csvs(), relation.name());
+                    let full_path = format!("{}/{}", csv_path, relation.name());
                     debug!("flusing {} to {}.csv", relation.name(), full_path); // actually merging flushed partitions
                     merge_relation_partitions(&full_path, peers); 
                 }

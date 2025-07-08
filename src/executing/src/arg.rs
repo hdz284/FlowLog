@@ -13,11 +13,7 @@ pub struct Args {
 
     /// direct path of the IDBs .csv
     #[arg(short, long)]
-    csvs: String,
-
-    /// evaluate w spilling the output
-    #[arg(short, long, default_value_t = false)]
-    output_result: bool,
+    csvs: Option<String>,
 
     /// delimiter
     #[arg(short, long, default_value = ",")]
@@ -46,12 +42,8 @@ impl Args {
         (&self.facts).to_owned()
     }
 
-    pub fn csvs(&self) -> String {
-        (&self.csvs).to_owned()
-    }
-
-    pub fn output_result(&self) -> bool {
-        self.output_result
+    pub fn csvs(&self) -> Option<String> {
+        self.csvs.clone()
     }
 
     pub fn delimiter(&self) -> &String {
