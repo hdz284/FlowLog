@@ -31,7 +31,7 @@ impl DependencyGraph {
         let rules = program.rules();
         let rule_idb_names = rules.iter().map(|rule| rule.head().name().clone()).collect::<Vec<String>>();
         
-        // println!(".depgraph rule_idb_names = {:?}", rule_idb_names);
+        // debug!(".depgraph rule_idb_names = {:?}", rule_idb_names);
 
         /* head2rule_ids_map maps head_name to rule_ids of that head */ 
         let mut head2rule_ids_map = HashMap::new();

@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 itertools = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 parsing = { path = "../parsing" }  
 strata = { path = "../strata" }  

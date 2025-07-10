@@ -126,16 +126,6 @@ impl HeadIDB {
 /// # Returns
 /// A HashMap mapping predicate names to their HeadIDB analysis. If multiple rules define
 /// the same predicate, only the first encountered rule's analysis is stored.
-///
-/// # Example
-/// ```rust
-/// let catalog = idb_catalog_from_program(&program);
-/// if let Some(head_info) = catalog.get("my_predicate") {
-///     if head_info.is_aggregation() {
-///         println!("Predicate involves aggregation");
-///     }
-/// }
-/// ```
 pub fn idb_catalog_from_program(program: &Program) -> HashMap<String, HeadIDB> {
     let mut catalog: HashMap<String, HeadIDB> = HashMap::new();
 

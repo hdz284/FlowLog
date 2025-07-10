@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 use itertools::Itertools;
+use tracing::{debug, info};
 
 extern crate timely;
 extern crate differential_dataflow;
@@ -27,8 +28,6 @@ use reading::rel::DoubleRel::*;
 use reading::reader::*; 
 use reading::inspect::*;
 use catalog::head::HeadIDB;
-
-
 
 pub fn program_execution(
     args: Args,
@@ -64,11 +63,14 @@ pub fn program_execution(
             }
 
             /* inspect edbs (optional) */
-            if args.verbose() {
+            if tracing::level_enabled!(tracing::Level::DEBUG) {
                 for (signature, rel) in row_map
                     .iter()
-                    .sorted_by_key(|(signature, _)| signature.name()) { printsize_generic(rel, &format!("[{}]", signature.name()), false); }
+                    .sorted_by_key(|(signature, _)| signature.name()) {
+                    printsize_generic(rel, &format!("[{}]", signature.name()), false);
+                }
             }
+            
 
             for group_plan in group_plans.iter() {
                 if !group_plan.is_recursive() {
@@ -175,13 +177,14 @@ pub fn program_execution(
                     );
     
                     /* inspect idbs of the non-recursive strata (optional) */
-                    if args.verbose() {
+                    if tracing::level_enabled!(tracing::Level::DEBUG) {
                         inspector(
                             &group_plan.head_signatures_set(), 
                             &mut row_map,
                             false
                         );
                     }
+                    
                 } else {
                     let recursive_out_map = scope.iterative::<Iter, _, _>(|scope| {
                         /* (1) construct iterative variables for strata idbs */ 
@@ -354,7 +357,7 @@ pub fn program_execution(
                         }
 
                         /* concatenate and threshold idbs of the recursive strata into the variables_next_map */
-                        // println!("last_signatures_map: {:?}", group_plan.last_signatures_map());
+                        // debug!("last_signatures_map: {:?}", group_plan.last_signatures_map());
                         recursive_collector(
                             group_plan.last_signatures_map(), 
                             &nest_row_map,
@@ -363,7 +366,7 @@ pub fn program_execution(
                         );
 
                         /* inspect idbs of the recursive strata (optional) */
-                        if args.verbose() {
+                        if tracing::level_enabled!(tracing::Level::DEBUG) {
                             inspector(
                                 &head_signatures_set, 
                                 &mut variables_next_map,
@@ -403,14 +406,15 @@ pub fn program_execution(
                         // printsize the relation
                         printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
 
-                        // only output if rel is IDBs
-                        if strata.program().idbs().iter().any(|idb| idb.name() == rel_name) {
-                            writesize_generic(&recursive_rel, &rel_name, &format!("{}/size.txt", args.csvs()));
-                            if args.output_result() {
-                                let full_path = format!("{}/{}", args.csvs(), rel_name);
+                        if let Some(csv_path) = args.csvs() {
+                            // only output if rel is IDBs
+                            if strata.program().idbs().iter().any(|idb| idb.name() == rel_name) {
+                                writesize_generic(&recursive_rel, &rel_name, &format!("{}/size.txt", csv_path));
+                                let full_path = format!("{}/{}", csv_path, rel_name);
                                 write_generic(&recursive_rel, &full_path, id);
                             }
                         }
+                        
 
                         // if the rel is in the row_map, it will be overwritten
                         row_map.insert(
@@ -427,7 +431,7 @@ pub fn program_execution(
         }); 
 
         if id == 0 {
-            println!("{:?}:\tDataflow assembled", timer.elapsed());
+            info!("{:?}:\tDataflow assembled", timer.elapsed());
         }
 
         /* feeding edb data */ 
@@ -463,7 +467,7 @@ pub fn program_execution(
                 .close();
 
             if id == 0 {
-                println!("{:?}:\tData loaded for {}", timer.elapsed(), rel_name);
+                info!("{:?}:\tData loaded for {}", timer.elapsed(), rel_name);
             }
         }
 
@@ -473,12 +477,12 @@ pub fn program_execution(
         }
 
         if id == 0 {
-            println!("{:?}:\tFixpoint reached", timer.elapsed()); // <--- end of clock excluding output
+            info!("{:?}:\tFixpoint reached", timer.elapsed()); // <--- end of clock excluding output
 
-            if args.output_result() {
+            if let Some(csv_path) = args.csvs() {
                 for relation in strata.program().idbs() {
-                    let full_path = format!("{}/{}", args.csvs(), relation.name());
-                    println!("flusing {} to {}.csv", relation.name(), full_path); // actually merging flushed partitions
+                    let full_path = format!("{}/{}", csv_path, relation.name());
+                    debug!("flusing {} to {}.csv", relation.name(), full_path); // actually merging flushed partitions
                     merge_relation_partitions(&full_path, peers); 
                 }
             }

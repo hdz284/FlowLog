@@ -24,17 +24,8 @@ fn main() {
     
     // Configuration parameters
     println!("--- Configuration Parameters ---");
-    println!("FALLBACK_ARITY: {} (max arity before using fat mode)", FALLBACK_ARITY);
+    println!("FALLBACK_ARITY: {} (max arity before forcing fat mode)", FALLBACK_ARITY);
     println!("KV_MAX: {} (max arity for key-value operations)", KV_MAX);
     println!("ROW_MAX: {} (max arity for row operations)", ROW_MAX);
     println!("PROD_MAX: {} (max arity for product operations)", PROD_MAX);
-    
-    println!();
-    
-    // Feature summary
-    println!();
-    println!("--- Build Configuration Summary ---");
-    println!("Semiring: {} ({} bytes)", SEMIRING_TYPE, std::mem::size_of::<reading::Semiring>());
-    println!("Max fixed arity: {}", FALLBACK_ARITY);
-    println!("Codegen limits: KV={}, ROW={}, PROD={}", KV_MAX, ROW_MAX, PROD_MAX);
 }

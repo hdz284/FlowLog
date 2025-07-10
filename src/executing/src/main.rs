@@ -4,30 +4,33 @@ use clap::Parser as ClapParser;
 use debugging::debugger;
 use executing::arg::Args;
 use executing::dataflow::program_execution;
-use planning::program::ProgramQueryPlan;
-use reading::FALLBACK_ARITY;
-use strata::stratification::Strata;
-
 use mimalloc::MiMalloc;
+use planning::program::ProgramQueryPlan;
+use reading::{KV_MAX, ROW_MAX};
+use strata::stratification::Strata;
+use tracing::{info, warn};
+use tracing_subscriber::EnvFilter;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() {
+    /* initialize tracing subscriber for logging */
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .init();
+
     /* CL args parsing */
     let args = Args::parse();
 
-    debugger::display_info("Arguments", false, format!("{:#?}", args), args.verbose());
+    debugger::display_info("Arguments", false, format!("{:#?}", args));
 
     /* (1) program parsing */
     let program = parsing::parser::Program::from_str(args.program());
 
-    debugger::display_info(
-        "Parsed Program",
-        false,
-        format!("{}", program),
-        args.verbose(),
-    );
+    debugger::display_info("Parsed Program", false, format!("{}", program));
 
     /* (2) stratification */
     let strata = Strata::from_parser(program.clone());
@@ -36,17 +39,16 @@ fn main() {
         "Strata",
         false,
         format!("{}\n{}", strata.dependency_graph(), strata),
-        args.verbose(),
     );
 
     /* (3) planning (catalog and query plan) */
-    let program_query_plan = ProgramQueryPlan::from_strata(&strata, args.no_sharing());
+    let program_query_plan =
+        ProgramQueryPlan::from_strata(&strata, args.no_sharing(), args.opt_level());
 
     debugger::display_info(
         "Program Query Plans",
         true,
         format!("{}", program_query_plan),
-        true,
     );
 
     /* arity analysis */
@@ -63,19 +65,15 @@ fn main() {
                 .collect::<Vec<_>>()
                 .join("\n")
         ),
-        true
     );
 
     /* Determine if fat mode should be used based on arity and user preference */
-    let use_fat_mode = program_query_plan.should_use_fat_mode(args.fat_mode(), FALLBACK_ARITY);
+    let use_fat_mode = program_query_plan.should_use_fat_mode(args.fat_mode(), KV_MAX, ROW_MAX);
 
     /* If fat mode was forced due to high arity, inform the user */
     if use_fat_mode && !args.fat_mode() {
-        println!(
-            "WARNING: Fat mode automatically enabled due to high arity (> {})",
-            FALLBACK_ARITY
-        );
-        println!(
+        warn!("WARNING: Fat mode automatically enabled due to high arity");
+        warn!(
             "         Maximal incomparable arity pairs found: {:?}",
             program_query_plan.maximal_arity_pairs()
         );
@@ -92,7 +90,7 @@ fn main() {
         idb_map,
     );
 
-    println!("success query");
+    info!("success query");
 }
 
 // ./target/debug/executing -p ./examples/programs/tc.dl -f ./examples/facts -c ./examples/csvs -v

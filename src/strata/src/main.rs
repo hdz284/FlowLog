@@ -1,11 +1,19 @@
 use parsing::parser::Lexeme;
 use parsing::{FlowLogParser, Parser, Rule};
 use std::fs;
+use tracing::{debug, info};
 
 use strata::stratification::Strata;
+use tracing_subscriber::EnvFilter;
 // use analyzing::dependencies::DependencyGraph;
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .init();
+
     let program_source = "./examples/programs/cspa.dl";
     let unparsed_str = fs::read_to_string(program_source)
         .unwrap_or_else(|_| panic!("can't read program from \"{}\"", program_source));
@@ -31,8 +39,8 @@ fn main() {
     // let graph = DependencyGraph::from_program(&program);
     let strata = Strata::from_parser(program);
     
-    println!("{}", strata.dependency_graph());
-    println!("{}", strata);
+    debug!("{}", strata.dependency_graph());
+    debug!("{}", strata);
 
-    println!("success parse");
+    info!("success parse");
 }

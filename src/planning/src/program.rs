@@ -1,15 +1,13 @@
 use std::fmt;
-use std::sync::Arc;
 // use itertools::Itertools;
 use std::collections::HashSet;
+use tracing::debug;
 
 // use parsing::rule::FLRule;
-use strata::stratification::Strata;
-use catalog::rule::Catalog;
-use crate::collections::CollectionSignature;
 use crate::rule::RuleQueryPlan;
 use crate::strata::GroupStrataQueryPlan;
-
+use catalog::rule::Catalog;
+use strata::stratification::Strata;
 
 #[derive(Debug, Clone)]
 pub struct ProgramQueryPlan {
@@ -22,52 +20,80 @@ impl ProgramQueryPlan {
     }
 
     pub fn new(program_plan: Vec<GroupStrataQueryPlan>) -> Self {
-        Self {
-            program_plan,
-        }
+        Self { program_plan }
     }
 
-    pub fn from_strata(strata: &Strata, disable_sharing: bool) -> Self {
-        let rule_plans  = strata
+    pub fn from_strata(strata: &Strata, disable_sharing: bool, opt_level: Option<u8>) -> Self {
+        let rule_plans: Vec<(bool, Vec<RuleQueryPlan>)> = strata
             .strata()
             .into_iter()
             .zip(strata.is_recursive_strata_bitmap())
             .flat_map(|(stratum, is_recursive)| {
                 let mut rule_identifier = 0;
-                let chain = stratum
+                let mut any_sip = false;
+
+                let chain: Vec<RuleQueryPlan> = stratum
                     .iter()
-                    .map(|&rule| {
+                    .flat_map(|&rule| {
                         let catalog = Catalog::from_strata(rule);
-                        let expanded_catalogs = if rule.is_sip() { catalog.sideways(rule_identifier) } else { vec![catalog] }; // sideways information passing
+                        let (is_sip, is_planning) = if catalog
+                            .is_core_atom_bitmap()
+                            .into_iter()
+                            .filter(|&x| *x)
+                            .count() > 2 { // optimize for <= 2 core atoms are meaningless
+                            match opt_level {
+                                Some(level) => {
+                                    (level == 1 || level == 3 || rule.is_sip(), level >= 2 || rule.is_planning())
+                                }
+                                None => (rule.is_sip(), rule.is_planning()),
+                            }
+                        } else {
+                            (false, false)
+                        };
+
+                        if is_sip { any_sip = true; } // mark if any rule uses sip in a stratum
+
+                        let expanded_catalogs = if is_sip {
+                            catalog.sideways(rule_identifier)
+                        } else {
+                            vec![catalog]
+                        };
                         rule_identifier += 1;
+
                         expanded_catalogs
                             .into_iter()
-                            .map(|catalog| RuleQueryPlan::from_catalog(&catalog, rule.is_planning()))
-                            .collect::<Vec<RuleQueryPlan>>()
+                            .map(move |catalog| RuleQueryPlan::from_catalog(&catalog, is_planning)) 
                     })
-                    .flatten();
-                
-                // if it is non_recursive and there is some rule annotated by .optimize()
+                    .collect();
+
+                // if it is non_recursive and there is some rule using sip, slice into multiple non-recursive strata
                 // (because sideways information passing slices the strata into many cascading strata) 
-                if !*is_recursive && stratum.iter().any(|rule| rule.is_sip()) {
-                    chain
-                        .map(|plan| (false, vec![plan])) // (to do) this is a hacky way to make sideways works
-                        .collect::<Vec<(bool, Vec<RuleQueryPlan>)>>()
+                if !*is_recursive && any_sip {
+                    chain.into_iter().map(|plan| (false, vec![plan])).collect() // (to do) this is probably a hacky way to make sideways works
                 } else {
-                    vec![(*is_recursive, chain.collect())] // one strata group
+                    vec![(*is_recursive, chain)] // no change to the strata group since it is recursive or no sip rules
                 }
             })
-            .collect::<Vec<(bool, Vec<RuleQueryPlan>)>>();
+            .collect();
 
         // debugging for each rule plan in the group
         for (is_recursive, rule_plans) in &rule_plans {
-            println!("-------------------------------- {} strata group --------------------------------", if *is_recursive { "recursive" } else { "non-recursive" });
-            for rule_plan in rule_plans { println!("{}", rule_plan); }
+            debug!(
+                "-------------------------------- {} strata group --------------------------------",
+                if *is_recursive {
+                    "recursive"
+                } else {
+                    "non-recursive"
+                }
+            );
+            for rule_plan in rule_plans {
+                debug!("{}", rule_plan);
+            }
         }
 
-        // accumulative seen seet across all strata
-        let mut seen_set: HashSet<Arc<CollectionSignature>> = HashSet::new();
-        let program_plan: Vec<GroupStrataQueryPlan> = rule_plans
+        // accumulative seen set across all strata
+        let mut seen_set = HashSet::new();
+        let program_plan = rule_plans
             .into_iter()
             .map(|(is_recursive, rule_plans)| {
                 GroupStrataQueryPlan::new(is_recursive, rule_plans, &mut seen_set, disable_sharing)
@@ -81,31 +107,34 @@ impl ProgramQueryPlan {
         self.program_plan
             .iter()
             .flat_map(|group_plan| {
-                group_plan.strata_plan().into_iter().flat_map(|transformation| {
-                    let mut arities = Vec::new();
-                    
-                    // Get output collection arity
-                    let (key_arity, value_arity) = transformation.output().arity();
-                    arities.push(key_arity);
-                    arities.push(value_arity);
-                    
-                    // Get input collection(s) arity
-                    if transformation.is_unary() {
-                        let (key_arity, value_arity) = transformation.unary().arity();
+                group_plan
+                    .strata_plan()
+                    .into_iter()
+                    .flat_map(|transformation| {
+                        let mut arities = Vec::new();
+
+                        // Get output collection arity
+                        let (key_arity, value_arity) = transformation.output().arity();
                         arities.push(key_arity);
                         arities.push(value_arity);
-                    } else {
-                        let (left, right) = transformation.binary();
-                        let (left_key, left_value) = left.arity();
-                        let (right_key, right_value) = right.arity();
-                        arities.push(left_key);
-                        arities.push(left_value);
-                        arities.push(right_key);
-                        arities.push(right_value);
-                    }
-                    
-                    arities
-                })
+
+                        // Get input collection(s) arity
+                        if transformation.is_unary() {
+                            let (key_arity, value_arity) = transformation.unary().arity();
+                            arities.push(key_arity);
+                            arities.push(value_arity);
+                        } else {
+                            let (left, right) = transformation.binary();
+                            let (left_key, left_value) = left.arity();
+                            let (right_key, right_value) = right.arity();
+                            arities.push(left_key);
+                            arities.push(left_value);
+                            arities.push(right_key);
+                            arities.push(right_value);
+                        }
+
+                        arities
+                    })
             })
             .max()
             .unwrap_or(0)
@@ -117,13 +146,13 @@ impl ProgramQueryPlan {
     pub fn maximal_arity_pairs(&self) -> Vec<(usize, usize)> {
         // Collect all (key_arity, value_arity) pairs from the program
         let mut all_pairs = Vec::new();
-        
+
         // Collect all pairs
         for group_plan in &self.program_plan {
             for transformation in group_plan.strata_plan() {
                 // Get output collection arity
                 all_pairs.push(transformation.output().arity());
-                
+
                 // Get input collection(s) arity
                 if transformation.is_unary() {
                     all_pairs.push(transformation.unary().arity());
@@ -134,36 +163,43 @@ impl ProgramQueryPlan {
                 }
             }
         }
-        
+
         // Filter out non-maximal pairs and duplicates
         let mut maximal_pairs = Vec::new();
-        
+
         for pair in &all_pairs {
             if maximal_pairs.contains(pair) {
                 continue; // Skip duplicates
             }
-            
+
             let (k1, v1) = *pair;
-            let is_dominated = all_pairs.iter().any(|&(k2, v2)| 
-                k2 >= k1 && v2 >= v1 && (k2 > k1 || v2 > v1)
-            );
-            
+            let is_dominated = all_pairs
+                .iter()
+                .any(|&(k2, v2)| k2 >= k1 && v2 >= v1 && (k2 > k1 || v2 > v1));
+
             if !is_dominated {
                 maximal_pairs.push(*pair);
             }
         }
-        
+
         maximal_pairs
     }
 
     /// Determines if fat mode should be used based on the maximum arity required.
-    /// Fat mode is REQUIRED for arities > fallback_arity (usually 3 or 8),
+    /// Fat mode is REQUIRED for arities > fallback_arity
     /// as the fixed-size array implementations only support up to this arity.
-    pub fn should_use_fat_mode(&self, user_requested_fat_mode: bool, fallback_arity: usize) -> bool {
+    pub fn should_use_fat_mode(
+        &self,
+        user_requested_fat_mode: bool,
+        fallback_key: usize,
+        fallback_value: usize,
+    ) -> bool {
         // If any key or value arity exceeds fallback_arity, fat mode must be used
         // Otherwise, it depends on the user's command-line argument
         let maximal_pairs = self.maximal_arity_pairs();
-        let any_exceeds_fallback = maximal_pairs.iter().any(|(k, v)| *k > fallback_arity || *v > fallback_arity);
+        let any_exceeds_fallback = maximal_pairs
+            .iter()
+            .any(|(k, v)| *k > fallback_key || *v > fallback_value);
         any_exceeds_fallback || user_requested_fat_mode
     }
 
@@ -175,7 +211,7 @@ impl ProgramQueryPlan {
             .flat_map(|group_plan| {
                 group_plan.strata_plan().into_iter().map(|transformation| {
                     let output_arity = transformation.output().arity();
-                    
+
                     let input_arities = if transformation.is_unary() {
                         let arity = transformation.unary().arity();
                         vec![arity]
@@ -185,16 +221,16 @@ impl ProgramQueryPlan {
                         let right_arity = right.arity();
                         vec![left_arity, right_arity]
                     };
-                    
-                    let transformation_name = transformation.output().signature().debug_name().to_string();
-                    
+
+                    let transformation_name =
+                        transformation.output().signature().debug_name().to_string();
+
                     (transformation_name, input_arities, output_arity)
                 })
             })
             .collect()
     }
 }
-
 
 impl fmt::Display for ProgramQueryPlan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

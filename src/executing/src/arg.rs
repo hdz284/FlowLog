@@ -13,14 +13,7 @@ pub struct Args {
 
     /// direct path of the IDBs .csv
     #[arg(short, long)]
-    csvs: String,
-
-    /// evaluate w spilling the output
-    #[arg(short, long, default_value_t = false)]
-    output_result: bool,
-
-    #[arg(short, long, default_value_t = false)]
-    verbose: bool,
+    csvs: Option<String>,
 
     /// delimiter
     #[arg(short, long, default_value = ",")]
@@ -38,6 +31,11 @@ pub struct Args {
     /// -w, --workers: number of per-process worker threads.
     #[arg(short, long, default_value_t = 1)]
     workers: usize,
+
+    /// optimization Level
+    /// 0: as is, 1: sip, 2: planning, 3: sip + planning
+    #[arg(short = 'O', value_parser = clap::value_parser!(u8).range(0..=3))]
+    opt_level: Option<u8>,
 }
 
 impl Args {
@@ -49,16 +47,8 @@ impl Args {
         (&self.facts).to_owned()
     }
 
-    pub fn csvs(&self) -> String {
-        (&self.csvs).to_owned()
-    }
-
-    pub fn verbose(&self) -> bool {
-        self.verbose
-    }
-
-    pub fn output_result(&self) -> bool {
-        self.output_result
+    pub fn csvs(&self) -> Option<String> {
+        self.csvs.clone()
     }
 
     pub fn delimiter(&self) -> &String {
@@ -79,11 +69,8 @@ impl Args {
             String::from(format!("{}", &self.workers)),
         ]
     }
-}
 
-
-
-pub fn test() {
-    let args = Args::parse();
-    println!("{:?}", args);
+    pub fn opt_level(&self) -> Option<u8> {
+        self.opt_level
+    }
 }

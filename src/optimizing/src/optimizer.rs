@@ -2,6 +2,7 @@ use std::fmt;
 use std::{collections::{BinaryHeap, HashMap, HashSet}, vec};
 use std::cmp::Reverse;
 use catalog::rule::Catalog;
+use tracing::debug;
 
 // assuming no cross products for the joins
 
@@ -179,7 +180,7 @@ impl PlanTree {
                         // add the child to the parent (there must be one)
                         candidate_tree.get_mut(&parent_id).unwrap().push(child_id);
                         candidate_tree.insert(child_id, vec![]);
-                        // println!("insert edge ({} -> {})", parent_id, child_id);
+                        // debug!("insert edge ({} -> {})", parent_id, child_id);
                         candidate_overlap += prev_overlap;
                     }
 
@@ -215,7 +216,7 @@ impl PlanTree {
                     let candidate_depth = Self::populate_tree_depth(candidate_root, &candidate_tree);
 
                     if candidate_width < width || (candidate_width == width && candidate_depth < depth) {
-                        println!("newly optimized tree found w/ width {} and depth {}", candidate_width, candidate_depth);
+                        debug!("newly optimized tree found w/ width {} and depth {}", candidate_width, candidate_depth);
                         tree = candidate_tree;
                         width = candidate_width;
                         depth = candidate_depth;

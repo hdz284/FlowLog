@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-itertools = { workspace = true }
 parsing = { path = "../parsing" }  
 strata = { path = "../strata" }  
 catalog = { path = "../catalog" }  
 debugging = { path = "../debugging" }  
+
+itertools = { workspace = true }
+tracing = { workspace = true }

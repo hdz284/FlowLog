@@ -186,8 +186,8 @@ impl TransformationFlow {
         output_value_signatures: &Vec<AtomArgumentSignature>,
         compare_exprs: &Vec<ComparisonExprPos>  
     ) -> Self {
-        // println!("input_left_key_signatures: {:?}", input_left_key_signatures);
-        // println!("input_right_key_signatures: {:?}", input_right_key_signatures);
+        // debug!("input_left_key_signatures: {:?}", input_left_key_signatures);
+        // debug!("input_right_key_signatures: {:?}", input_right_key_signatures);
         
         let left_signature_map = Self::kv_argument_flow_map(input_left_key_signatures, input_left_value_signatures)
             .into_iter()

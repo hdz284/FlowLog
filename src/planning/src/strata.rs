@@ -133,13 +133,13 @@ impl GroupStrataQueryPlan {
         // base case (already seen) - skip if sharing is disabled
         if !disable_sharing && seen.contains(output_signature) {
             // it can't be the that global scope has an intermediate rel that is produced by some recursive idb of this strata (we can safely reuse it)
-            // println!("borrow {} from global", output_signature);
+            // debug!("borrow {} from global", output_signature);
             return (vec![], HashSet::from([Arc::clone(&output_signature)]));
         }
 
         // base case (already nested_seen) - skip if sharing is disabled
         if !disable_sharing && nested_seen.contains(output_signature) {
-            // println!("borrow {} from nested", output_signature);
+            // debug!("borrow {} from nested", output_signature);
             return (vec![], HashSet::new());
         }
 

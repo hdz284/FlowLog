@@ -37,7 +37,7 @@ impl RuleQueryPlan {
     /* main entry */
     pub fn from_catalog(catalog: &Catalog, is_optimized: bool) -> Self {
         let plan = PlanTree::from_catalog(catalog, is_optimized);   
-        // println!("join spanning tree: {:?}", plan);
+        // debug!("join spanning tree: {:?}", plan);
         let mut is_active_negation_bitmap = vec![true; catalog.negated_atom_names().len()];
 
         // a vector of length catalog.atom_names().len()
@@ -216,9 +216,9 @@ impl RuleQueryPlan {
                 }   
             }
 
-            // println!("join key arguments: {:?}", join_key_strs);
-            // println!("leftover value arguments: {:?}", leftover_value_strs);
-            // println!("planning value arguments: {:?}", planning_value_strs);
+            // debug!("join key arguments: {:?}", join_key_strs);
+            // debug!("leftover value arguments: {:?}", leftover_value_strs);
+            // debug!("planning value arguments: {:?}", planning_value_strs);
             
             /* ------------------------------------ recursive calls ------------------------------------ */
             // clone the original tree and remove the last child from the entry for the root
@@ -253,7 +253,7 @@ impl RuleQueryPlan {
             /* ------------------------------------ end of recursive calls ------------------------------------ */
 
             // for &comp_id in &join_comp_ids {
-            //     println!("join filters to be fused: {}", catalog.comparison_predicates()[comp_id]);
+            //     debug!("join filters to be fused: {}", catalog.comparison_predicates()[comp_id]);
             // }
         
             /* ------------------------------------ final join (follow by one or more antijoins) transformations ------------------------------------ */
@@ -538,7 +538,7 @@ impl RuleQueryPlan {
                 );
             
             // for compare_expr_signature in &compare_expr_signatures {
-            //     println!("comparison signatures for {}: {}", negated_atom_signature, compare_expr_signature);
+            //     debug!("comparison signatures for {}: {}", negated_atom_signature, compare_expr_signature);
             // }
                     
             let (left_transformation, mut tree) =
@@ -577,7 +577,7 @@ impl RuleQueryPlan {
                     &catalog.top_down_trace(&head_value_arguments, planning_atom_signatures),
                 );
 
-            // println!("antijoin inserted: {}", root_transformation.flow());
+            // debug!("antijoin inserted: {}", root_transformation.flow());
 
             tree.insert(
                 root_transformation.clone(),
@@ -622,7 +622,7 @@ impl RuleQueryPlan {
             assert!(active_comparison_predicates.len() == compare_expr_signatures.len(), "active comparisons for semijoins are not fully consumed by the base"); 
 
             // for compare_expr_signature in &compare_expr_signatures {
-            //     println!("comparison signatures for {}: {}", planning_atom_signature, compare_expr_signature);
+            //     debug!("comparison signatures for {}: {}", planning_atom_signature, compare_expr_signature);
             // }
             
             let leaf_transformation = Transformation::kv_to_kv(
@@ -680,7 +680,7 @@ impl RuleQueryPlan {
                 );
             
             // for compare_expr_signature in &compare_expr_signatures {
-            //     println!("comparison signatures for {}: {}", subatom_signature, compare_expr_signature);
+            //     debug!("comparison signatures for {}: {}", subatom_signature, compare_expr_signature);
             // }
 
             let (left_transformation, mut tree) = Self::recursive_semijoins(
