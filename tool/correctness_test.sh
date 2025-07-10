@@ -44,8 +44,8 @@ setup_dataset() {
 # =========================
 
 verify_results() {
-    local SIZE_FILE="${1:-./result/size.txt}"
-    local CSV_DIR="${2:-./result}"
+    local SIZE_FILE="${1:-./result/csvs/size.txt}"
+    local CSV_DIR="${2:-./result/csvs}"
 
     echo "[VERIFY] Checking result files using $SIZE_FILE..."
 
