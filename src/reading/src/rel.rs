@@ -46,7 +46,6 @@ pub fn row_chop<const M: usize, const K: usize, const V: usize>(
         for i in K..M {
             value.push(v.column(i));
         }
-
         (key, value)
     }
 }

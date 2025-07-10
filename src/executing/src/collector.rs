@@ -4,7 +4,6 @@ use macros::codegen_aggregation;
 use planning::collections::CollectionSignature;
 use reading::inspect::printsize_generic;
 use reading::rel::{row_chop, Rel};
-use reading::row::*;
 
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::reduce::ReduceCore;

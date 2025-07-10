@@ -363,7 +363,7 @@ pub fn codegen_aggregation(_: TokenStream) -> TokenStream {
                         "aggregation",
                         aggregation_reduce_logic::<#key_arity>(&aggregation)
                     )
-                    .as_collection(|k: &Row<#key_arity>, v: &Row<1>| aggregation_merge_kv::<#key_arity, #arity>()((k.clone(), v.clone())))
+                    .as_collection(|k, v| aggregation_merge_kv::<#key_arity, #arity>()((k.clone(), v.clone())))
             )
         });
     }
@@ -377,7 +377,7 @@ pub fn codegen_aggregation(_: TokenStream) -> TokenStream {
                         "aggregation",
                         aggregation_reduce_logic_fat(&aggregation)
                     )
-                    .as_collection(|k: &FatRow, v: &Row<1>| aggregation_merge_kv_fat()((k.clone(), v.clone()))),
+                    .as_collection(|k, v| aggregation_merge_kv_fat()((k.clone(), v.clone()))),
                 idb_catalog.arity()
             )
         } else {

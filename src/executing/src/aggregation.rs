@@ -44,7 +44,7 @@ pub fn aggregation_reduce_logic<const N_GB: usize>(
 ) {
     let operator = aggregation.operator().clone();
 
-    move |_key, input, output, _fuel| {
+    move |key, input, _output, updates| {
         let mut out = Row::<1>::new();
 
         // Extract values from input rows for aggregation
@@ -52,7 +52,7 @@ pub fn aggregation_reduce_logic<const N_GB: usize>(
 
         if let Some(result) = aggregate_ints(&values, &operator) {
             out.push(result);
-            output.push((out, semiring_one()));
+            updates.push((out, semiring_one()));
         }
     }
 }

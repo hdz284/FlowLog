@@ -175,7 +175,7 @@ pub fn program_execution(
                         &mut row_map,
                         &idb_map,
                     );
-    
+
                     /* inspect idbs of the non-recursive strata (optional) */
                     if tracing::level_enabled!(tracing::Level::DEBUG) {
                         inspector(
