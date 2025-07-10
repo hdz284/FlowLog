@@ -15,7 +15,7 @@ fn main() {
         )
         .init();
 
-    let program_source = "./examples/programs/ddisasm-test.dl";
+    let program_source = "./examples/programs/andersen.dl";
     let unparsed_str = fs::read_to_string(program_source)
         .unwrap_or_else(|_| panic!("can't read program from \"{}\"", program_source));
 
@@ -39,7 +39,7 @@ fn main() {
     debugging::debugger::display_info("Strata (Topological Order)", true, format!("{}\n", strata));
 
     // planning
-    let program_query_plan = ProgramQueryPlan::from_strata(&strata, false, None);
+    let program_query_plan = ProgramQueryPlan::from_strata(&strata, false, Some(3));
 
     debugging::debugger::display_info(
         "Program Query Plans",

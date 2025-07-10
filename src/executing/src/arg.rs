@@ -32,8 +32,8 @@ pub struct Args {
     #[arg(short, long, default_value_t = 1)]
     workers: usize,
 
-    /// Optimization Level
-    /// 0: no optimizations, 1: sip, 2: planning, 3: sip + planning
+    /// optimization Level
+    /// 0: as is, 1: sip, 2: planning, 3: sip + planning
     #[arg(short = 'O', value_parser = clap::value_parser!(u8).range(0..=3))]
     opt_level: Option<u8>,
 }
