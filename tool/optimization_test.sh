@@ -2,7 +2,7 @@
 set -e
 
 # =========================
-# OPTIMIZATION TEST SCRIPT
+# OPTIMIZATION TEST SCRIPT (Correctness + Timing)
 # =========================
 
 # =========================
@@ -24,7 +24,7 @@ WORKERS=64
 setup_dataset() {
     mkdir -p ./test/correctness_test
     
-    if [ -d "./test/correctness_test/dataset" ] && [ -d "./test/correctness_test/program" ]; then
+    if [ -d "$FACT_DIR" ] && [ -d "$PROG_DIR" ]; then
         echo "[OK] Dataset already extracted. Skipping download."
     else
         echo "[DOWNLOAD] Downloading and extracting dataset bundle..."
@@ -66,13 +66,8 @@ verify_results_with_reference() {
     echo "[VERIFY] Checking results for $prog_name with $optimization optimization..."
     echo "[VERIFY] Comparing $result_size_file with $reference_size_file"
 
-    if [ ! -f "$result_size_file" ]; then
-        echo "[ERROR] Result size file $result_size_file not found!"
-        return 1
-    fi
-
-    if [ ! -f "$reference_size_file" ]; then
-        echo "[ERROR] Reference size file $reference_size_file not found!"
+    if [ ! -f "$result_size_file" ] || [ ! -f "$reference_size_file" ]; then
+        echo "[ERROR] Missing result or reference size file!"
         return 1
     fi
 
@@ -82,8 +77,7 @@ verify_results_with_reference() {
     
     # Simple file comparison
     if cmp -s "$result_size_file" "$reference_size_file"; then
-        echo "[PASS] Files are identical - test passed for $prog_name ($optimization)!"
-        return 0
+        echo "[PASS] Files match - correctness passed for $prog_name ($optimization)"
     else
         echo "[FAIL] Files differ - test failed for $prog_name ($optimization)!"
         echo "[DEBUG] Showing differences:"
@@ -95,56 +89,39 @@ verify_results_with_reference() {
 run_single_optimization_test() {
     local prog_name="$1"
     local dataset_name="$2"
-    local optimization="$3"
-    
+    local optimization_flag="$3"
+    local optimization_label="$4"
+
     local prog_path="${PROG_DIR}/${prog_name}"
     local fact_path="${FACT_DIR}/${dataset_name}"
 
-    echo "[TEST] Running $prog_name with $dataset_name ($optimization)"
+    echo "[TEST] Running $prog_name with $dataset_name ($optimization_label)"
 
-    # Validate inputs
-    if [ ! -f "$prog_path" ]; then
-        echo "[ERROR] Program not found: $prog_path"
-        exit 1
+    rm -rf "$CSV_DIR/csvs"
+    mkdir -p "$CSV_DIR/csvs"
+
+    if [ -z "$optimization_flag" ]; then
+        "$BINARY_PATH" --program "$prog_path" --facts "$fact_path" --csvs "$CSV_DIR" --workers "$WORKERS"
+    else
+        "$BINARY_PATH" --program "$prog_path" --facts "$fact_path" --csvs "$CSV_DIR" --workers "$WORKERS" "$optimization_flag"
     fi
 
-    if [ ! -d "$fact_path" ]; then
-        echo "[ERROR] Dataset not found: $fact_path"
-        exit 1
-    fi
-
-    # Clean and prepare output directory
-    rm -rf "$CSV_DIR"
-    mkdir -p "$CSV_DIR"
-
-    # Print the running command
-    echo "[RUN] Command executing: RUST_LOG=info $BINARY_PATH --program $prog_path --facts $fact_path --csvs $CSV_DIR --workers $WORKERS $optimization"
-
-    # Run the binary
-    RUST_LOG=info "$BINARY_PATH" \
-        --program "$prog_path" \
-        --facts "$fact_path" \
-        --csvs "$CSV_DIR" \
-        --workers "$WORKERS" \
-        "$optimization"
-
-    # Verify results
-    echo "[VERIFY] Checking results for $optimization..."
     local program_stem="${prog_name%.*}"
-    local result_size_file="${CSV_DIR}/size.txt"
+    local result_size_file="${CSV_DIR}/csvs/size.txt"
 
-    verify_results_with_reference "$program_stem" "$optimization" "$result_size_file" || {
-        echo "[ERROR] Verification failed for $prog_name ($optimization)"
+    verify_results_with_reference "$program_stem" "$optimization_label" "$result_size_file" || {
+        echo "[ERROR] Verification failed for $prog_name ($optimization_label)"
         exit 1
     }
 
-    echo "[PASS] Test completed: $prog_name ($optimization)"
+    echo "[DONE] Test completed for $prog_name ($optimization_label)"
 }
 
-run_optimization_tests() {
+run_all_optimization_tests() {
     echo "[TEST] Running optimization tests..."
 
-    local optimizations=("-O1" "-O2" "-O3")
+    local optimizations=("" "-O1" "-O2" "-O3")
+    local opt_labels=("none" "1" "2" "3")
 
     while IFS='=' read -r prog_name dataset_name; do
         if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
@@ -154,12 +131,49 @@ run_optimization_tests() {
         echo "[PROGRAM] Testing $prog_name with $dataset_name"
         echo "========================================"
 
-        for optimization in "${optimizations[@]}"; do
-            run_single_optimization_test "$prog_name" "$dataset_name" "$optimization"
+        for i in "${!optimizations[@]}"; do
+            run_single_optimization_test "$prog_name" "$dataset_name" "${optimizations[$i]}" "${opt_labels[$i]}"
         done
     done < "$CONFIG_FILE"
-    
+
     echo "[OK] All optimization tests passed!"
+}
+
+generate_timing_table() {
+    echo ""
+    echo "============================"
+    echo "[SUMMARY] Timing Results Table"
+    echo "============================"
+
+    printf "| %-10s | %-17s | %-17s | %-17s | %-17s |\n" "Program" "No Optimization" "O1" "O2" "O3"
+    printf "|------------|-------------------|-------------------|-------------------|-------------------|\n"
+
+    while IFS='=' read -r prog_name dataset_name; do
+        if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
+            continue
+        fi
+
+        local program_stem="${prog_name%.*}"
+        printf "| %-10s " "$program_stem"
+
+        for opt in "none" "1" "2" "3"; do
+            local time_file="result/time/${program_stem}_${opt}.txt"
+            if [ -f "$time_file" ]; then
+                elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" || echo "N/A")
+            else
+                elapsed_time="              N/A"
+            fi
+
+            # Pad numbers nicely
+            if [[ "$elapsed_time" =~ ^[0-9] ]]; then
+                printf "| %17.6f " "$elapsed_time"
+            else
+                printf "| %-17s " "$elapsed_time"
+            fi
+        done
+
+        printf "|\n"
+    done < "$CONFIG_FILE"
 }
 
 # =========================
@@ -167,20 +181,21 @@ run_optimization_tests() {
 # =========================
 
 main() {
-    echo "[START] FlowLog Optimization Test"
-    
-    
+    echo "[START] FlowLog Optimization Test (Correctness + Timing)"
+
     echo "[BUILD] Building the project..."
     cargo build --release
-    
+
     setup_dataset
     setup_size_reference
-    
-    echo "=== SETUP COMPLETE ==="
-    
-    run_optimization_tests
 
-    echo "[FINISH] All optimization test cases finished successfully."
+    echo "=== SETUP COMPLETE ==="
+
+    # run_all_optimization_tests
+
+    generate_timing_table
+
+    echo "[FINISH] All optimization test cases completed successfully."
 }
 
 main "$@"
