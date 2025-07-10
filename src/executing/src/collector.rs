@@ -3,11 +3,12 @@ use catalog::head::HeadIDB;
 use macros::codegen_aggregation;
 use planning::collections::CollectionSignature;
 use reading::inspect::printsize_generic;
-use reading::rel::Rel;
+use reading::rel::{row_chop, Rel};
 use reading::row::*;
 
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::reduce::ReduceCore;
+use differential_dataflow::trace::implementations::{ValBuilder, ValSpine};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -134,4 +135,3 @@ where
     };
     rel
 }
-

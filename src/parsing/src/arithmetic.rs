@@ -1,7 +1,7 @@
-use std::fmt;
-use std::collections::HashSet;
 use crate::{parser::Lexeme, rule::Const, Rule};
 use pest::iterators::Pair;
+use std::collections::HashSet;
+use std::fmt;
 
 /** arithmic ops **/
 // arithmic_op = { plus | minus | times | divide }
@@ -16,7 +16,7 @@ pub enum ArithmeticOperator {
     Minus,
     Multiply,
     Divide,
-    Modulo
+    Modulo,
 }
 
 impl fmt::Display for ArithmeticOperator {
@@ -54,7 +54,6 @@ impl Lexeme for ArithmeticOperator {
         }
     }
 }
-
 
 // factor = { variable | constant }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -103,8 +102,6 @@ impl Lexeme for Factor {
     }
 }
 
-
-
 #[derive(Debug, Clone)]
 pub struct Arithmetic {
     init: Factor,
@@ -135,9 +132,8 @@ impl Arithmetic {
     // if it is a simple variable
     pub fn is_var(&self) -> bool {
         self.init.is_var() && self.rest.is_empty()
-    }   
+    }
 }
-
 
 impl fmt::Display for Arithmetic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -148,7 +144,7 @@ impl fmt::Display for Arithmetic {
             .map(|(op, factor)| format!("{} {}", op, factor))
             .collect::<Vec<String>>()
             .join(" ");
-        
+
         if rest.is_empty() {
             write!(f, "{}", init)
         } else {
@@ -161,7 +157,7 @@ impl Lexeme for Arithmetic {
     fn from_parsed_rule(parsed_rule: Pair<Rule>) -> Self {
         let mut inner_rules = parsed_rule.into_inner();
         let init = Factor::from_parsed_rule(inner_rules.next().unwrap());
-        
+
         // consume every two next() calls as a pair (op, factor) until there is no more next()
         let mut rest = Vec::new();
         while let Some(op) = inner_rules.next() {

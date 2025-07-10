@@ -34,7 +34,7 @@ use crate::row::Array;
 use crate::row::Row;
 
 #[inline(always)]
-fn row_chop<const M: usize, const K: usize, const V: usize>(
+pub fn row_chop<const M: usize, const K: usize, const V: usize>(
 ) -> impl FnMut(Row<M>) -> (Row<K>, Row<V>) {
     move |v| {
         let mut key = Row::<K>::new();

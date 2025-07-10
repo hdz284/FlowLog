@@ -347,20 +347,23 @@ pub fn codegen_k_flatten(_: TokenStream) -> TokenStream {
 /* ------------------------------------------------------------------------ */
 #[proc_macro]
 pub fn codegen_aggregation(_: TokenStream) -> TokenStream {
-    let space = 0..=KV_MAX;
+    let space = 1..=KV_MAX;
     let mut arms = vec![];
 
     for key_arity in space {
         let arity = key_arity + 1;
         let base_type = Ident::new(&format!("rel_{}", arity), Span::call_site());
         let final_rel = Ident::new(&format!("Collection{}", arity), Span::call_site());
-        
+
         arms.push(quote! {
             #arity => Rel::#final_rel(
                 input_rel.#base_type()
-                    .map(aggregation_separate_kv::<#key_arity, #arity>())
-                    .reduce_core("aggregation", aggregation_reduce_logic::<#key_arity, #arity>(&aggregation))
-                    .as_collection(|k: &Row<#key_arity>, v: &i32| aggregation_merge_kv::<#key_arity, #arity>()((k.clone(), *v)))
+                    .map(row_chop::<#arity, #key_arity, 1>())
+                    .reduce_core::<_,ValBuilder<_,_,_,_>,ValSpine<_,_,_,_>>(
+                        "aggregation",
+                        aggregation_reduce_logic::<#key_arity>(&aggregation)
+                    )
+                    .as_collection(|k: &Row<#key_arity>, v: &Row<1>| aggregation_merge_kv::<#key_arity, #arity>()((k.clone(), v.clone())))
             )
         });
     }
@@ -370,8 +373,11 @@ pub fn codegen_aggregation(_: TokenStream) -> TokenStream {
             Rel::CollectionFat(
                 input_rel.rel_fat()
                     .map(aggregation_separate_kv_fat())
-                    .reduce_core("aggregation", aggregation_reduce_logic_fat(&aggregation))
-                    .as_collection(|k: &FatRow, v: &i32| aggregation_merge_kv_fat()((k.clone(), *v))),
+                    .reduce_core::<_,ValBuilder<_,_,_,_>,ValSpine<_,_,_,_>>(
+                        "aggregation",
+                        aggregation_reduce_logic_fat(&aggregation)
+                    )
+                    .as_collection(|k: &FatRow, v: &Row<1>| aggregation_merge_kv_fat()((k.clone(), v.clone()))),
                 idb_catalog.arity()
             )
         } else {
