@@ -2,6 +2,10 @@
 set -e
 
 # =========================
+# CORRECTNESS TEST SCRIPT
+# =========================
+
+# =========================
 # CONFIGURATION
 # =========================
 
@@ -13,38 +17,8 @@ BINARY_PATH="./target/release/executing"
 WORKERS=64
 
 # =========================
-# SETUP FUNCTIONS
+# DATASET SETUP
 # =========================
-
-install_system_packages() {
-    echo "[SETUP] Checking system packages..."
-    sudo apt update && sudo apt upgrade -y
-    
-    local packages=()
-    command -v htop >/dev/null || packages+=("htop")
-    command -v dos2unix >/dev/null || packages+=("dos2unix")
-    
-    if [ ${#packages[@]} -gt 0 ]; then
-        echo "[INSTALL] Installing packages: ${packages[*]}"
-        sudo apt install -y "${packages[@]}"
-    else
-        echo "[OK] All required packages already installed"
-    fi
-}
-
-install_rust() {
-    if ! command -v rustc >/dev/null; then
-        echo "[INSTALL] Installing Rust..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        export PATH="$HOME/.cargo/bin:$PATH"
-        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
-    else
-        echo "[OK] Rust is already installed"
-    fi
-    
-    echo "[UPDATE] Updating Rust to latest version..."
-    rustup update && rustup default stable
-}
 
 setup_dataset() {
     mkdir -p ./test
@@ -153,6 +127,7 @@ run_single_test() {
 
     # Verify results
     echo "[VERIFY] Checking results for $test_case..."
+
     verify_results || {
         echo "[ERROR] Verification failed for $prog_name ($test_case)"
         exit 1
@@ -191,17 +166,16 @@ run_tests_for_binary() {
 # =========================
 
 main() {
-    echo "[START] FlowLog Environment Test"
+    echo "[START] FlowLog Correctness Test"
     
-    install_system_packages
-    install_rust
-    setup_dataset
-    
-    echo "=== SETUP COMPLETE ==="
     
     echo "[BUILD] Building Present Semiring (default)..."
     cargo build --release
-
+    
+    setup_dataset
+    
+    echo "=== DATASET SETUP COMPLETE ==="
+    
     run_tests_for_binary "present"
 
     echo "[FINISH] All test cases per program finished successfully."

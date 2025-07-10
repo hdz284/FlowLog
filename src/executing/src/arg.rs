@@ -31,6 +31,11 @@ pub struct Args {
     /// -w, --workers: number of per-process worker threads.
     #[arg(short, long, default_value_t = 1)]
     workers: usize,
+
+    /// optimization Level
+    /// 0: as is, 1: sip, 2: planning, 3: sip + planning
+    #[arg(short = 'O', value_parser = clap::value_parser!(u8).range(0..=3))]
+    opt_level: Option<u8>,
 }
 
 impl Args {
@@ -63,5 +68,9 @@ impl Args {
             String::from("-w"),
             String::from(format!("{}", &self.workers)),
         ]
+    }
+
+    pub fn opt_level(&self) -> Option<u8> {
+        self.opt_level
     }
 }
