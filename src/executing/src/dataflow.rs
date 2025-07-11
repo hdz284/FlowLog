@@ -366,7 +366,7 @@ pub fn program_execution(
                         );
 
                         /* inspect idbs of the recursive strata (optional) */
-                        if tracing::level_enabled!(tracing::Level::DEBUG) {
+                        if tracing::level_enabled!(tracing::Level:: DEBUG) {
                             inspector(
                                 &head_signatures_set, 
                                 &mut variables_next_map,

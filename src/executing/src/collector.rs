@@ -25,17 +25,41 @@ pub fn non_recursive_collector<G>(
         .iter()
         .sorted_by_key(|(signature, _)| signature.name())
     {
+        let init_rel = last_signatures
+            .first()
+            .and_then(|signature| row_map.get(signature))
+            .expect("Init relation missing");
+
+        let concat_rels = last_signatures
+            .iter()
+            .skip(1)
+            .map(|signature| { 
+                Arc::clone(row_map.get(signature).expect("last signature missing when concatenate"))
+            });
+
+        let input_rel = match row_map.get(head_signature) {
+            Some(head_rel) => {
+                let full = std::iter::once(Arc::clone(init_rel)).chain(concat_rels);
+                Arc::new(head_rel.concatenate(full))
+            },
+            None => {
+                if last_signatures.len() == 1 {
+                    Arc::clone(init_rel)
+                } else {
+                    Arc::new(init_rel.concatenate(concat_rels))
+                }
+            }
+        };
+
         let idb_catalog = idb_catalogs
             .get(head_signature.name())
             .expect("couldn't find catalog metadata for idb head");
         if idb_catalog.is_aggregation() {
-            let input_rel = build_concat_rel(head_signature, last_signatures, row_map, row_map);
             let aggregation = idb_catalog.aggregation();
             let output_rel = Arc::new(codegen_aggregation!());
             row_map.insert(Arc::clone(head_signature), output_rel);
         } else {
-            let rel = build_concat_rel(head_signature, last_signatures, row_map, row_map);
-            row_map.insert(Arc::clone(head_signature), rel);
+            row_map.insert(Arc::clone(head_signature), input_rel);
         }
     }
 }
@@ -53,27 +77,42 @@ pub fn recursive_collector<G>(
         .iter()
         .sorted_by_key(|(signature, _)| signature.name())
     {
+        let init_rel = last_signatures
+            .first()
+            .and_then(|signature| nest_row_map.get(signature))
+            .expect("init relation missing");
+
+        let concat_rels = last_signatures
+            .iter()
+            .skip(1)
+            .map(|signature| { 
+                Arc::clone(nest_row_map.get(signature).expect("last signature missing when concatenate"))
+            });
+
+        let input_rel = match variables_next_map.get(head_signature) {
+            Some(head_rel) => {
+                let full = std::iter::once(Arc::clone(init_rel)).chain(concat_rels);
+                head_rel.concatenate(full).threshold()
+            },
+            None => {
+                if last_signatures.len() == 1 {
+                    init_rel.threshold()
+                } else {
+                    init_rel.concatenate(concat_rels).threshold()
+                }
+            }
+        };
+
         let idb_catalog = idb_catalogs
             .get(head_signature.name())
             .expect("couldn't find catalog metadata for idb head");
+
         if idb_catalog.is_aggregation() {
-            let input_rel = build_concat_rel(
-                head_signature,
-                last_signatures,
-                nest_row_map,
-                variables_next_map,
-            );
             let aggregation = idb_catalog.aggregation();
             let output_rel = Arc::new(codegen_aggregation!());
             variables_next_map.insert(Arc::clone(head_signature), output_rel);
         } else {
-            let rel = build_concat_rel(
-                head_signature,
-                last_signatures,
-                nest_row_map,
-                variables_next_map,
-            );
-            variables_next_map.insert(Arc::clone(head_signature), rel);
+            variables_next_map.insert(Arc::clone(head_signature), Arc::new(input_rel));
         }
     }
 }
@@ -100,37 +139,4 @@ pub fn inspector<G>(
         printsize_generic(entry, head_signature.name(), is_recursive);
         // print_generic(entry, head_signature.name());
     }
-}
-
-/// Helper function: Given a head signature, create the relation that is the concatenation
-/// of previous and newly discovered
-fn build_concat_rel<G>(
-    head_signature: &Arc<CollectionSignature>,
-    last_signatures: &Vec<Arc<CollectionSignature>>,
-    current_map: &HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>,
-    head_map: &HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>,
-) -> Arc<Rel<G>>
-where
-    G: timely::dataflow::scopes::Scope,
-    G::Timestamp: Lattice + TotalOrder,
-{
-    let relations = last_signatures
-        .iter()
-        .map(|signature| {
-            Arc::clone(
-                current_map
-                    .get(signature)
-                    .expect("last signature missing when concatenate"),
-            )
-        })
-        .collect::<Vec<Arc<Rel<G>>>>();
-    let rel = match head_map.get(head_signature) {
-        Some(head_rel) => Arc::new(head_rel.concatenate(relations.into_iter())),
-        None => {
-            let mut iter = relations.into_iter();
-            let first = iter.next().unwrap();
-            Arc::new(first.concatenate(iter))
-        }
-    };
-    rel
 }
