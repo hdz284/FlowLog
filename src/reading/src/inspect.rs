@@ -16,7 +16,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use timely::dataflow::Scope;
 use timely::order::TotalOrder;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::rel::Rel;
 use crate::semiring_one;
@@ -245,7 +245,7 @@ where
 /// - `output_dir`: The directory containing worker partition files.
 /// - `worker_count`: Number of workers (used to find all partial files).
 pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
-    let file_handle = get_file_handle(&format!("{}.csv", output_path));
+    let file_handle = get_file_handle(&format!("{}", output_path));
 
     // Read and concatenate all existing worker files
     let merged_content = (0..worker_count)
@@ -255,8 +255,8 @@ pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
                 Ok(content) => Some(content),
                 Err(_) => {
                     if worker_id == 0 {
-                        // log an error
-                        error!("Warning: missing or unreadable file {}", part_path);
+                        // log a warning
+                        warn!("Warning: missing or unreadable segment files of relation {}", output_path);
                     }
                     None
                 }
