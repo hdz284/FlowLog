@@ -44,7 +44,7 @@ pub fn aggregation_reduce_logic<const N_GB: usize>(
 ) {
     let operator = aggregation.operator().clone();
 
-    move |key, input, _output, updates| {
+    move |_key, input, _output, updates| {
         let mut out = Row::<1>::new();
 
         // Extract values from input rows for aggregation
