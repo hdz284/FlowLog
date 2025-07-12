@@ -244,7 +244,7 @@ where
 /// - `output_dir`: The directory containing worker partition files.
 /// - `worker_count`: Number of workers (used to find all partial files).
 pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
-    let file_handle = get_file_handle(&format!("{}.csv", output_path));
+    let file_handle = get_file_handle(&format!("{}", output_path));
 
     // Read and concatenate all existing worker files
     let merged_content = (0..worker_count)

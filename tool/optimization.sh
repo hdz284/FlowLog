@@ -164,7 +164,6 @@ generate_timing_table() {
                 elapsed_time="              N/A"
             fi
 
-            # Pad numbers nicely
             if [[ "$elapsed_time" =~ ^[0-9] ]]; then
                 printf "| %17.6f " "$elapsed_time"
             else
@@ -174,6 +173,8 @@ generate_timing_table() {
 
         printf "|\n"
     done < "$CONFIG_FILE"
+
+    rm -rf "$CSV_DIR/time"
 }
 
 # =========================
@@ -191,7 +192,7 @@ main() {
 
     echo "=== SETUP COMPLETE ==="
 
-    # run_all_optimization_tests
+    run_all_optimization_tests
 
     generate_timing_table
 
