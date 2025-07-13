@@ -127,18 +127,18 @@ impl HeadIDB {
 /// A HashMap mapping predicate names to their HeadIDB analysis. If multiple rules define
 /// the same predicate, only the first encountered rule's analysis is stored.
 pub fn idb_catalog_from_program(program: &Program) -> HashMap<String, HeadIDB> {
-    let mut catalog: HashMap<String, HeadIDB> = HashMap::new();
+    let mut idb_catalog: HashMap<String, HeadIDB> = HashMap::new();
 
     for rule in program.rules() {
         let predicate_name = rule.head().name();
 
         // Only insert if we haven't seen this predicate before
         // This preserves the "first rule wins" semantics
-        if !catalog.contains_key(predicate_name) {
+        if !idb_catalog.contains_key(predicate_name) {
             let head_idb = HeadIDB::from_rule(rule.head());
-            catalog.insert(predicate_name.clone(), head_idb);
+            idb_catalog.insert(predicate_name.clone(), head_idb);
         }
     }
 
-    catalog
+    idb_catalog
 }

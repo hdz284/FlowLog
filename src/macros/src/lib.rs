@@ -347,7 +347,7 @@ pub fn codegen_k_flatten(_: TokenStream) -> TokenStream {
 /* ------------------------------------------------------------------------ */
 #[proc_macro]
 pub fn codegen_aggregation(_: TokenStream) -> TokenStream {
-    let space = 1..=KV_MAX;
+    let space = 0..=KV_MAX;
     let mut arms = vec![];
 
     for key_arity in space {
