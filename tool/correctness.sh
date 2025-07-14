@@ -12,7 +12,8 @@ set -e
 CONFIG_FILE="./test/correctness_test/config.txt"
 PROG_DIR="./test/correctness_test/program"
 FACT_DIR="./test/correctness_test/dataset"
-CSV_DIR="./result"
+SIZE_DIR="./test/correctness_test/correctness_size"
+RESULT_DIR="./result"
 BINARY_PATH="./target/release/executing"
 WORKERS=64
 
@@ -37,6 +38,20 @@ setup_dataset() {
 
     echo "[FIX] Fixing line endings in config.txt..."
     dos2unix "$CONFIG_FILE" 2>/dev/null || true
+}
+
+setup_size_reference() {
+    if [ -d "$SIZE_DIR" ]; then
+        echo "[OK] Size reference already extracted. Skipping download."
+        return
+    fi
+    
+    echo "[DOWNLOAD] Downloading and extracting size reference..."
+    local zip_path="./test/correctness_test/solution_size.zip"
+    wget -O "$zip_path" https://pages.cs.wisc.edu/~m0riarty/correctness_size.zip
+    unzip "$zip_path" -d "./test/correctness_test"
+    rm "$zip_path"
+    echo "[OK] Size reference extracted and zip file removed."
 }
 
 # =========================
@@ -88,16 +103,46 @@ verify_results() {
     fi
 }
 
-run_single_test() {
+verify_results_with_reference() {
     local prog_name="$1"
-    local dataset_name="$2" 
-    local sharing_flag="$3"
-    local test_case="$4"
+    local dataset_name="$2"
+    local test_label="$3"
+    local result_size_file="$4"
+    local reference_size_file="${SIZE_DIR}/${prog_name}_${dataset_name}_size.txt"
+
+    echo "[VERIFY] Checking results for $prog_name with $test_label..."
+    echo "[VERIFY] Comparing $result_size_file with $reference_size_file"
+
+    if [ ! -f "$result_size_file" ] || [ ! -f "$reference_size_file" ]; then
+        echo "[ERROR] Missing result or reference size file!"
+        return 1
+    fi
+
+    # Sort both files in place before comparison
+    sort -o "$result_size_file" "$result_size_file"
+    sort -o "$reference_size_file" "$reference_size_file"
+    
+    # Simple file comparison
+    if cmp -s "$result_size_file" "$reference_size_file"; then
+        echo "[PASS] Files match - correctness passed for $prog_name ($test_label)"
+    else
+        echo "[FAIL] Files differ - test failed for $prog_name ($test_label)!"
+        echo "[DEBUG] Showing differences:"
+        diff "$reference_size_file" "$result_size_file" || true
+        return 1
+    fi
+}
+
+run_test() {
+    local prog_name="$1"
+    local dataset_name="$2"
+    local flags="$3"
+    local test_label="$4"
     
     local prog_path="${PROG_DIR}/${prog_name}"
     local fact_path="${FACT_DIR}/${dataset_name}"
 
-    echo "[TEST] Running $prog_name with $dataset_name ($test_case)"
+    echo "[TEST] Running $prog_name with $dataset_name ($test_label)"
 
     # Validate inputs
     if [ ! -f "$prog_path" ]; then
@@ -111,35 +156,58 @@ run_single_test() {
     fi
 
     # Clean and prepare output directory
-    rm -rf "$CSV_DIR"
-    mkdir -p "$CSV_DIR"
+    rm -rf "$RESULT_DIR/csvs"
+    mkdir -p "$RESULT_DIR/csvs"
+
+    # Build command with flags
+    local cmd="$BINARY_PATH --program $prog_path --facts $fact_path --csvs $RESULT_DIR --workers $WORKERS"
+    if [ -n "$flags" ]; then
+        cmd="$cmd $flags"
+    fi
 
     # Print the running command
-    echo "[RUN] Command executing: RUST_LOG=info $BINARY_PATH --program $prog_path --facts $fact_path --csvs $CSV_DIR --workers $WORKERS $sharing_flag"
+    echo "[RUN] Command executing: RUST_LOG=info $cmd"
 
     # Run the binary
-    RUST_LOG=info "$BINARY_PATH" \
-        --program "$prog_path" \
-        --facts "$fact_path" \
-        --csvs "$CSV_DIR" \
-        --workers "$WORKERS" \
-        $sharing_flag
+    RUST_LOG=info $cmd
 
-    # Verify results
-    echo "[VERIFY] Checking results for $test_case..."
-
-    verify_results || {
-        echo "[ERROR] Verification failed for $prog_name ($test_case)"
+    # First verify basic results consistency
+    local result_size_file="$RESULT_DIR/csvs/size.txt"
+    echo "[VERIFY] Checking basic result consistency..."
+    verify_results "$result_size_file" "$RESULT_DIR/csvs" || {
+        echo "[ERROR] Basic verification failed for $prog_name ($test_label)"
         exit 1
     }
 
-    echo "[PASS] Test completed: $prog_name ($test_case)"
+    # Then verify against reference if available
+    local program_stem="${prog_name%.*}"
+    local reference_size_file="${SIZE_DIR}/${program_stem}_${dataset_name}_size.txt"
+
+    if [ -f "$reference_size_file" ]; then
+        echo "[VERIFY] Checking against reference..."
+        verify_results_with_reference "$program_stem" "$dataset_name" "$test_label" "$result_size_file" || {
+            echo "[ERROR] Reference verification failed for $prog_name ($test_label)"
+            exit 1
+        }
+    else
+        echo "[ERROR] No reference file found for $program_stem, skipping reference verification"
+        exit 1
+    fi
+
+    echo "[PASS] Test completed: $prog_name ($test_label)"
 }
 
-run_tests_for_binary() {
-    local BUILD_TYPE="$1"
+run_all_tests() {
+    echo "[TEST] Running all correctness tests..."
+    rm -rf "$RESULT_DIR"
 
-    echo "[TEST] Running tests for build type: $BUILD_TYPE"
+    # Define sharing configurations
+    local sharing_flags=("" "--no-sharing")
+    local sharing_labels=("sharing" "no-sharing")
+
+    # Define optimization configurations
+    local optimization_flags=("" "-O1" "-O2" "-O3")
+    local optimization_labels=("none" "O1" "O2" "O3")
 
     while IFS='=' read -r prog_name dataset_name; do
         if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
@@ -147,18 +215,24 @@ run_tests_for_binary() {
         fi
 
         echo "[PROGRAM] Testing $prog_name with $dataset_name"
-        echo "----------------------------------------"
+        echo "========================================"
 
-        for sharing_flag in "" "--no-sharing"; do
-            local test_case="enable-sharing"
-            if [ "$sharing_flag" = "--no-sharing" ]; then
-                test_case="no-sharing"
-            fi
-
-            run_single_test "$prog_name" "$dataset_name" "$sharing_flag" "$test_case"
+        # Test all combinations of sharing and optimization flags
+        for i in "${!sharing_flags[@]}"; do
+            for j in "${!optimization_flags[@]}"; do
+                local combined_flags="${sharing_flags[$i]} ${optimization_flags[$j]}"
+                # Remove extra spaces
+                combined_flags=$(echo "$combined_flags" | xargs)
+                
+                local test_label="${sharing_labels[$i]}-${optimization_labels[$j]}"
+                
+                run_test "$prog_name" "$dataset_name" "$combined_flags" "$test_label"
+            done
         done
+        
     done < "$CONFIG_FILE"
-    echo "[OK] All tests passed for build type: $BUILD_TYPE"
+
+    echo "[OK] All correctness tests passed!"
 }
 
 # =========================
@@ -166,19 +240,20 @@ run_tests_for_binary() {
 # =========================
 
 main() {
-    echo "[START] FlowLog Correctness Test"
+    echo "[START] FlowLog Correctness Test (Including Optimization Correctness)"
     
+    setup_dataset
+    setup_size_reference
     
+    echo "=== DATASET SETUP COMPLETE ==="
+
     echo "[BUILD] Building Present Semiring (default)..."
     cargo build --release
     
-    setup_dataset
-    
-    echo "=== DATASET SETUP COMPLETE ==="
-    
-    run_tests_for_binary "present"
+    echo "=== RUNNING ALL CORRECTNESS TESTS ==="
+    run_all_tests
 
-    echo "[FINISH] All test cases per program finished successfully."
+    echo "[FINISH] All correctness test cases finished successfully."
 }
 
 main "$@"
