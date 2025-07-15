@@ -173,13 +173,13 @@ generate_timing_csv() {
 main() {
     echo "[START] FlowLog Optimization Timing Test"
 
-    echo "[BUILD] Building the project..."
-    cargo build --release
-
     setup_dataset
 
     echo "=== SETUP COMPLETE ==="
 
+    echo "[BUILD] Building the project..."
+    cargo build --release
+    
     run_all_timing_tests
 
     generate_timing_table

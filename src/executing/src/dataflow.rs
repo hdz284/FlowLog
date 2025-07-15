@@ -190,6 +190,14 @@ pub fn program_execution(
                         let mut variables_next_map = HashMap::with_capacity(head_signatures_set.len());
 
                         for (head_name, head_arity) in group_plan.heads().iter().sorted_by_key(|x| x.0) {
+                            // (sideways) jump over sip rules
+                            // We do not collect sip rules in the collector, we store them in the next row map
+                            // TODO: temporarily way to avoid sip rule, need carefully refactor
+                            // to avoid this in the future
+                            if head_name.contains("_sip") {
+                                continue;
+                            }
+
                             variables_map.insert(
                                 Arc::new(CollectionSignature::new_atom(head_name)), 
                                 construct_var(scope, *head_arity, fat_mode)
@@ -202,6 +210,14 @@ pub fn program_execution(
 
                         let dependent_signatures = group_plan.enter_scope_set();
                         for dependent_signature in dependent_signatures.iter().sorted_by_key(|sig| sig.name()) {
+                            // (sideways) jump over sip rules
+                            // We do not collect sip rules in the collector, we store them in the next row map
+                            // TODO: temporarily way to avoid sip rule, need carefully refactor
+                            // to avoid this in the future
+                            if dependent_signature.name().contains("_sip") {
+                                continue;
+                            }
+
                             if let Some(dependent_rel) = row_map.get(dependent_signature) { // rel has been created prior to the strata
                                 if head_signatures_set.contains(dependent_signature) {
                                     // (1) rel from prior strata will be part of the eventual idb
@@ -278,7 +294,7 @@ pub fn program_execution(
                                             if *is_no_op && nest_row_map.contains_key(unary_signature) {
                                                 Arc::clone(nest_row_map.get(unary_signature).unwrap())
                                             } else {
-                                                Arc::new(codegen_row_row!())
+                                                Arc::new(codegen_row_row!().threshold())
                                             };
                                         nest_k_map.insert(
                                             Arc::clone(output_signature), 
@@ -335,6 +351,20 @@ pub fn program_execution(
                                 match (ok, ov) {
                                     (0, _) => { // jn → row
                                         nest_row_map.insert(Arc::clone(output_signature), Arc::clone(&output_rel));
+                                        // (sideways) jump over sip rules
+                                        // We do not collect sip rules in the collector, we store them in the next row map
+                                        // TODO: temporarily way to avoid sip rule, need carefully refactor
+                                        // to avoid this in the future
+                                        let head_signatures = group_plan
+                                                .reverse_last_signatures_map()
+                                                .get(output_signature)
+                                                .expect(&format!("Missing head signature for: {}", output_signature.name()));
+
+                                        for head_signature in head_signatures {
+                                            if head_signature.name().contains("_sip") {
+                                                nest_row_map.insert(Arc::clone(head_signature), Arc::clone(&output_rel));
+                                            }
+                                        }
                                     },
                                     (_, 0) => { // jn → k
                                         nest_k_map.insert(
@@ -399,12 +429,13 @@ pub fn program_execution(
                         .sorted_by_key(|(sig, _)| sig.name().to_owned())
                     {
                         let rel_name = recursive_signature.name();
-                        // printsize the relation
-                        printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
-
-                        if let Some(csv_path) = args.csvs() {
-                            // only output if rel is IDBs
-                            if strata.program().idbs().iter().any(|idb| idb.name() == rel_name) {
+                        
+                        // only output if rel is IDBs
+                        if strata.program().idbs().iter().any(|idb| idb.name() == rel_name) {
+                            // printsize the relation
+                            printsize_generic(&recursive_rel, &format!("[{}]", rel_name), true);
+                            if let Some(csv_path) = args.csvs() {
+                                // write IDB to csv
                                 writesize_generic(&recursive_rel, &rel_name, &format!("{}/csvs/size.txt", csv_path));
                                 let full_path = format!("{}/csvs/{}.csv", csv_path, rel_name);
                                 write_generic(&recursive_rel, &full_path, id);
@@ -475,12 +506,12 @@ pub fn program_execution(
         if id == 0 {
             let time_elapsed = timer.elapsed(); // <--- end of clock excluding output
             info!("{:?}:\tDataflow executed", time_elapsed);
-
-            if let Some(csv_path) = args.csvs() {
-                let opt_level_str = args.opt_level()
+            let opt_level_str = args.opt_level()
                     .map(|lvl| lvl.to_string())
                     .unwrap_or_else(|| "none".to_string());
-                record_time(&format!("{}/time/{}_{}.txt", csv_path, args.program_name(), opt_level_str), time_elapsed);
+                record_time(&format!("result/time/{}_{}_{}.txt", args.program_name(), args.fact_name(), opt_level_str), time_elapsed);
+
+            if let Some(csv_path) = args.csvs() {
                 for relation in strata.program().idbs() {
                     let full_path = format!("{}/csvs/{}.csv", csv_path, relation.name());
                     debug!("flusing {} to {}.csv", relation.name(), full_path); // actually merging flushed partitions
