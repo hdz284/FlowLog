@@ -115,11 +115,11 @@ generate_timing_table() {
         printf "| %-20s " "$label"
 
         for opt in "none" "1" "2" "3"; do
-            local time_file="${TIME_DIR}/${program_stem}_${opt}.txt"
+            local time_file="${TIME_DIR}/${program_stem}_${dataset_name}_${opt}.txt"
             if [ -f "$time_file" ]; then
-                elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" || echo "N/A")
+                elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" || echo "             N/A")
             else
-                elapsed_time="N/A"
+                elapsed_time="             N/A"
             fi
 
             if [[ "$elapsed_time" =~ ^[0-9] ]]; then
@@ -151,7 +151,7 @@ generate_timing_csv() {
         printf "%s,%s" "$program_stem" "$dataset_name" >> "$csv_file"
 
         for opt in "none" "1" "2" "3"; do
-            local time_file="${TIME_DIR}/${program_stem}_${opt}.txt"
+            local time_file="${TIME_DIR}/${program_stem}_${dataset_name}_${opt}.txt"
             if [ -f "$time_file" ]; then
                 elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" || echo "N/A")
             else

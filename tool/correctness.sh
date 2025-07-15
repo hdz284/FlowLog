@@ -29,12 +29,18 @@ setup_dataset() {
         return
     fi
     
-    echo "[DOWNLOAD] Downloading and extracting dataset bundle..."
-    local zip_path="./test/correctness_test.zip"
+    echo "[DOWNLOAD] Downloading and extracting dataset bundle into tmpfs..."
+
+    # Use tmpfs location
+    local tmp_zip_dir="/dev/shm/correctness_tmp"
+    local zip_path="${tmp_zip_dir}/correctness_test.zip"
+
+    mkdir -p "$tmp_zip_dir"
     wget -O "$zip_path" https://pages.cs.wisc.edu/~m0riarty/correctness_test.zip
     unzip "$zip_path" -d "./test"
-    rm "$zip_path"
-    echo "[OK] Dataset extracted and zip file removed."
+    rm -rf "$tmp_zip_dir"
+
+    echo "[OK] Dataset extracted and temp zip file removed."
 
     echo "[FIX] Fixing line endings in config.txt..."
     dos2unix "$CONFIG_FILE" 2>/dev/null || true
