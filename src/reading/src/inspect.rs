@@ -9,11 +9,12 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::threshold::ThresholdTotal;
 use differential_dataflow::{Collection, ExchangeData, Hashable};
 use std::cell::RefCell;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::fs::{read_to_string, remove_file, File};
 use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use timely::dataflow::Scope;
 use timely::order::TotalOrder;
 use tracing::{debug, error, info};
@@ -42,8 +43,7 @@ fn get_file_handle(path: &str) -> Arc<Mutex<File>> {
             }
 
             // Open file for writing
-            let file =
-                File::create(path).expect(&format!("Can not create output file: {}", path));
+            let file = File::create(path).expect(&format!("Can not create output file: {}", path));
             handles_ref.insert(path_str.clone(), Arc::new(Mutex::new(file)));
         }
 
@@ -83,9 +83,8 @@ where
     let name = name.to_owned();
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .lift(|x| Some((x, 1 as i32)))
-        .inspect(move |(data, time, delta)| {
-            debug!("{}: ({}, {:?}, {})", name, data, time, delta)
-        }); // use std::fmt::Display for D (i.e. Row)
+        .inspect(move |(data, time, delta)| debug!("{}: ({}, {:?}, {})", name, data, time, delta));
+    // use std::fmt::Display for D (i.e. Row)
 }
 
 /// Write relation size
@@ -245,7 +244,7 @@ where
 /// - `output_dir`: The directory containing worker partition files.
 /// - `worker_count`: Number of workers (used to find all partial files).
 pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
-    let file_handle = get_file_handle(&format!("{}.csv", output_path));
+    let file_handle = get_file_handle(&format!("{}", output_path));
 
     // Read and concatenate all existing worker files
     let merged_content = (0..worker_count)
@@ -276,6 +275,23 @@ pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
         let part_path = format!("{}{}", output_path, worker_id);
         let _ = remove_file(&part_path);
     }
+}
+
+/// Records the elapsed time (in seconds) to a file.
+///
+/// Appends the elapsed time to the specified file.  
+/// Automatically creates directories and reuses file handles.
+///
+/// # Arguments
+///
+/// - `file_path`: The path to the file.
+/// - `time_elapsed`: Time elapsed in seconds (f64).
+pub fn record_time(file_path: &str, time_elapsed: Duration) {
+    let file_handle = get_file_handle(file_path);
+    let seconds = time_elapsed.as_secs_f64();
+    let mut file = file_handle.lock().unwrap();
+    writeln!(file, "{:.6} seconds elapsed", seconds)
+        .expect(&format!("Can not write time to file: {}", file_path));
 }
 
 /// Closes all open file handles

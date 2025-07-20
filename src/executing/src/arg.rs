@@ -43,6 +43,22 @@ impl Args {
         &self.program
     }
 
+    pub fn program_name(&self) -> String {
+        std::path::Path::new(&self.program)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "unknown_program".into())
+    }
+
+    pub fn fact_name(&self) -> String {
+        std::path::Path::new(&self.facts)
+            .file_name()                    
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown_fact")
+            .to_string()
+    }
+
     pub fn facts(&self) -> String {
         (&self.facts).to_owned()
     }

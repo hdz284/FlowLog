@@ -65,6 +65,14 @@ pub fn recursive_collector<G>(
         .iter()
         .sorted_by_key(|(signature, _)| signature.name()) 
     {
+        // (sideways) jump over sip rules
+        // We do not collect sip rules in the collector, we store them in the next row map
+        // TODO: temporarily way to avoid sip rule, need carefully refactor
+        // to avoid this in the future
+        if head_signature.name().contains("_sip") {
+            continue;
+        }
+
         let init_rel = last_signatures
             .first()
             .and_then(|signature| nest_row_map.get(signature))
