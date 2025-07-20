@@ -351,8 +351,8 @@ pub fn program_execution(
                                 match (ok, ov) {
                                     (0, _) => { // jn → row
                                         nest_row_map.insert(Arc::clone(output_signature), Arc::clone(&output_rel));
-                                        // (sideways) jump over sip rules
-                                        // We do not collect sip rules in the collector, we store them in the next row map
+                                        // (sideways) compensate sip rules
+                                        // We do not collect sip rules in the collector, so we need to store them in the next row map
                                         // TODO: temporarily way to avoid sip rule, need carefully refactor
                                         // to avoid this in the future
                                         let head_signatures = group_plan
