@@ -6,6 +6,10 @@ set -e
 # OPTIMIZATION TIMING TEST SCRIPT
 # This script measures execution time for FlowLog programs
 # with different optimization levels (-O1, -O2, -O3)
+# 
+# Execution logs are saved to ./log/ directory
+# Timing information is extracted from the "Dataflow executed" log line
+# Results are generated as table and CSV in the log directory
 ############################################################
 
 ############################################################
@@ -16,8 +20,8 @@ set -e
 CONFIG_FILE="./test/correctness_test/config.txt"      # Program/dataset pairs configuration
 PROG_DIR="./test/correctness_test/program"            # Program files directory
 FACT_DIR="./test/correctness_test/dataset"            # Dataset files directory
-TIME_DIR="./result/time"                              # Timing results directory
-BINARY_PATH="./target/release/executing"              # Path to compiled binary
+LOG_DIR="./result/log"                                 # Log output directory
+BINARY_PATH="./target/release/executing"               # Path to compiled binary
 WORKERS=64                                             # Number of worker threads
 
 ############################################################
@@ -112,20 +116,20 @@ run_single_timing_test() {
     # Set up paths for timing test
     local fact_path="${FACT_DIR}/${dataset_name}"
     local program_stem="${prog_name%.*}"
-    local time_file="${TIME_DIR}/${program_stem}_${dataset_name}_${optimization_label}.txt"
+    local log_file="${LOG_DIR}/${program_stem}_${dataset_name}_${optimization_label}.log"
 
     echo "[TIMING] Running $prog_name with $dataset_name ($optimization_label)"
 
-    # Ensure time directory exists
-    mkdir -p "$TIME_DIR"
+    # Ensure log directory exists
+    mkdir -p "$LOG_DIR"
 
-    # Run the binary with specified optimization flag (timing captured by binary)
+    # Run the binary with specified optimization flag and capture output to log
     echo "[RUN] Timing test: $prog_name ($optimization_label)"
 
     if [ -z "$optimization_flag" ]; then
-        "$BINARY_PATH" --program "$prog_path" --facts "$fact_path" --workers "$WORKERS"
+        RUST_LOG=info "$BINARY_PATH" --program "$prog_path" --facts "$fact_path" --workers "$WORKERS" > "$log_file" 2>&1
     else
-        "$BINARY_PATH" --program "$prog_path" --facts "$fact_path" --workers "$WORKERS" "$optimization_flag"
+        RUST_LOG=info "$BINARY_PATH" --program "$prog_path" --facts "$fact_path" --workers "$WORKERS" "$optimization_flag" > "$log_file" 2>&1
     fi
 
     echo "[TIMING] Completed $prog_name ($optimization_label)"
@@ -139,9 +143,9 @@ run_all_timing_tests() {
     local optimizations=("" "-O1" "-O2" "-O3")
     local opt_labels=("none" "1" "2" "3")
 
-    # Clean previous timing results
-    rm -rf "$TIME_DIR"
-    mkdir -p "$TIME_DIR"
+    # Clean previous logs
+    rm -rf "$LOG_DIR"
+    mkdir -p "$LOG_DIR"
 
     # Read each program=dataset pair from config file
     while IFS='=' read -r prog_name dataset_name; do
@@ -165,6 +169,35 @@ run_all_timing_tests() {
     done < "$CONFIG_FILE"
 
     echo "[OK] All timing tests completed!"
+}
+
+############################################################
+# TIMING EXTRACTION FUNCTIONS
+# Functions to extract timing information from log files
+############################################################
+
+extract_time_from_log() {
+    # Extract timing information from log file by parsing "Dataflow executed" line
+    local log_file="$1"
+    
+    if [ ! -f "$log_file" ]; then
+        echo "N/A"
+        return
+    fi
+    
+    # Look for the "Dataflow executed" line and extract the duration
+    # Format: "2025-07-22T21:41:00.527157Z  INFO executing::dataflow: 3.933584239s:	Dataflow executed"
+    local time_line=$(grep "Dataflow executed" "$log_file" 2>/dev/null | tail -1)
+    
+    if [ -z "$time_line" ]; then
+        echo "N/A"
+        return
+    fi
+    
+    # Extract time value using grep and sed
+    # Look for pattern like "3.933584239s:" and remove the "s:"
+    local extracted_time=$(echo "$time_line" | grep -oE '[0-9]+\.[0-9]+s:' | sed 's/s://' 2>/dev/null || echo "N/A")
+    echo "$extracted_time"
 }
 
 ############################################################
@@ -194,12 +227,8 @@ generate_timing_table() {
 
         # Display timing for each optimization level
         for opt in "none" "1" "2" "3"; do
-            local time_file="${TIME_DIR}/${program_stem}_${dataset_name}_${opt}.txt"
-            if [ -f "$time_file" ]; then
-                elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" || echo "             N/A")
-            else
-                elapsed_time="             N/A"
-            fi
+            local log_file="${LOG_DIR}/${program_stem}_${dataset_name}_${opt}.log"
+            elapsed_time=$(extract_time_from_log "$log_file")
 
             if [[ "$elapsed_time" =~ ^[0-9] ]]; then
                 printf "| %17.6f " "$elapsed_time"
@@ -217,7 +246,7 @@ generate_timing_csv() {
     echo ""
     echo "[CSV] Generating timing CSV file..."
 
-    local csv_file="${TIME_DIR}/timing_results.csv"
+    local csv_file="${LOG_DIR}/timing_results.csv"
 
     # Write CSV header
     echo "Program,Dataset,No_Optimization,O1,O2,O3" > "$csv_file"
@@ -233,12 +262,8 @@ generate_timing_csv() {
 
         # Write timing data for each optimization level
         for opt in "none" "1" "2" "3"; do
-            local time_file="${TIME_DIR}/${program_stem}_${dataset_name}_${opt}.txt"
-            if [ -f "$time_file" ]; then
-                elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" || echo "N/A")
-            else
-                elapsed_time="N/A"
-            fi
+            local log_file="${LOG_DIR}/${program_stem}_${dataset_name}_${opt}.log"
+            elapsed_time=$(extract_time_from_log "$log_file")
             printf ",%s" "$elapsed_time" >> "$csv_file"
         done
 

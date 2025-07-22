@@ -506,10 +506,6 @@ pub fn program_execution(
         if id == 0 {
             let time_elapsed = timer.elapsed(); // <--- end of clock excluding output
             info!("{:?}:\tDataflow executed", time_elapsed);
-            let opt_level_str = args.opt_level()
-                    .map(|lvl| lvl.to_string())
-                    .unwrap_or_else(|| "none".to_string());
-                record_time(&format!("result/time/{}_{}_{}.txt", args.program_name(), args.fact_name(), opt_level_str), time_elapsed);
 
             if let Some(csv_path) = args.csvs() {
                 for relation in strata.program().idbs() {
