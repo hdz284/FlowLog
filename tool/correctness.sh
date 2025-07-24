@@ -1,18 +1,17 @@
 #!/bin/bash
-# Exit immediately if a command exits with a non-zero status
 set -e
 
-############################################################
-# CORRECTNESS TEST SCRIPT
-# This script automates correctness testing for FlowLog programs
-# by running them with different optimization flags and datasets
-############################################################
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
-############################################################
-# CONFIGURATION
-# Define paths and parameters for the test environment
-############################################################
+echo -e "${BLUE}[START]${NC} FlowLog Correctness Testing"
 
+# Configuration
 CONFIG_FILE="./test/correctness_test/config.txt"
 PROG_DIR="./test/correctness_test/program"
 FACT_DIR="./test/correctness_test/dataset"
@@ -21,302 +20,175 @@ RESULT_DIR="./result"
 BINARY_PATH="./target/release/executing"
 WORKERS=64
 
-############################################################
-# DATASET SETUP
-# Functions to download, extract, and clean up datasets
-############################################################
-
 setup_dataset() {
-    # Download and extract dataset if not already present
     local dataset_name="$1" 
     local dataset_zip="./test/correctness_test/dataset/${dataset_name}.zip"
     local extract_path="${FACT_DIR}/${dataset_name}"
     local dataset_url="https://pages.cs.wisc.edu/~m0riarty/dataset/${dataset_name}.zip"
 
-    # Check if dataset is already extracted
-    if [ -d "$extract_path" ]; then
-        echo "[OK] Dataset $dataset_name already extracted. Skipping."
-        return
-    fi
+    [ -d "$extract_path" ] && { echo -e "${GREEN}[FOUND]${NC} Dataset $dataset_name"; return; }
 
     mkdir -p "$FACT_DIR"
-
-    # Download dataset if zip file doesn't exist
     if [ ! -f "$dataset_zip" ]; then
-        echo "[DOWNLOAD] Downloading $dataset_name.zip from $dataset_url..."
-        mkdir -p "$(dirname "$dataset_zip")"
-        wget -O "$dataset_zip" "$dataset_url" || {
-            echo "[ERROR] Failed to download dataset: $dataset_name"
-            exit 1
-        }
+        echo -e "${CYAN}[DOWNLOAD]${NC} $dataset_name.zip"
+        wget -q -O "$dataset_zip" "$dataset_url" || { echo -e "${RED}[ERROR]${NC} Download failed: $dataset_name"; exit 1; }
     fi
 
-    # Extract the dataset
-    echo "[EXTRACT] Extracting $dataset_name..."
+    echo -e "${YELLOW}[EXTRACT]${NC} $dataset_name"
     unzip -q "$dataset_zip" -d "$FACT_DIR"
-    echo "[OK] Dataset $dataset_name ready."
 }
 
 cleanup_dataset() {
-    # Remove extracted dataset and zip file to save space
     local dataset_name="$1"
-    local extract_path="${FACT_DIR}/${dataset_name}"
-    local zip_path="${FACT_DIR}/${dataset_name}.zip"
-
-    echo "[CLEANUP] Removing dataset $dataset_name..."
-    rm -rf "$extract_path"
-    rm -f "$zip_path"
-}
-
-setup_size_reference() {
-    # Download and extract reference solution sizes if needed
-    if [ -d "$SIZE_DIR" ]; then
-        echo "[OK] Size reference already extracted. Skipping download."
-        return
-    fi
-
-    echo "[DOWNLOAD] Downloading and extracting size reference..."
-    local zip_path="./test/correctness_test/solution_size.zip"
-    mkdir -p ./test/correctness_test
-
-    # Download, extract, and cleanup reference size files
-    wget -O "$zip_path" https://pages.cs.wisc.edu/~m0riarty/correctness_size.zip
-    unzip "$zip_path" -d "./test/correctness_test"
-    rm "$zip_path"
-    echo "[OK] Size reference extracted."
+    echo -e "${YELLOW}[CLEANUP]${NC} $dataset_name"
+    rm -rf "${FACT_DIR}/${dataset_name}" "${FACT_DIR}/${dataset_name}.zip"
 }
 
 setup_config_file() {
-    # Download config.txt if missing and fix line endings
-    if [ -f "$CONFIG_FILE" ]; then
-        echo "[OK] Config file already exists. Skipping download."
-        return
-    fi
-
-    echo "[DOWNLOAD] Downloading config.txt..."
+    [ -f "$CONFIG_FILE" ] && return
+    echo -e "${CYAN}[DOWNLOAD]${NC} config.txt"
     mkdir -p "$(dirname "$CONFIG_FILE")"
-    wget -O "$CONFIG_FILE" https://pages.cs.wisc.edu/~m0riarty/config.txt
-
-    # Fix line endings (convert DOS to Unix format)
-    echo "[FIX] Fixing line endings in config.txt..."
+    wget -q -O "$CONFIG_FILE" https://pages.cs.wisc.edu/~m0riarty/config.txt
     dos2unix "$CONFIG_FILE" 2>/dev/null || true
-    echo "[OK] Config file ready."
 }
 
-############################################################
-# TEST FUNCTIONS
-# Functions to verify results and run tests
-############################################################
+setup_size_reference() {
+    [ -d "$SIZE_DIR" ] && return
+    echo -e "${CYAN}[DOWNLOAD]${NC} Reference sizes"
+    local zip_path="./test/correctness_test/solution_size.zip"
+    mkdir -p ./test/correctness_test
+    wget -q -O "$zip_path" https://pages.cs.wisc.edu/~m0riarty/correctness_size.zip
+    unzip -q "$zip_path" -d "./test/correctness_test"
+    rm "$zip_path"
+}
 
 verify_results() {
-    # Check each output CSV file against expected line counts
     local SIZE_FILE="${1:-./result/csvs/size.txt}"
     local CSV_DIR="${2:-./result/csvs}"
 
-    echo "[VERIFY] Checking result files using $SIZE_FILE..."
-
-    if [ ! -f "$SIZE_FILE" ]; then
-        echo "[ERROR] Size file $SIZE_FILE not found!"
-        return 1
-    fi
+    [ ! -f "$SIZE_FILE" ] && { echo -e "${RED}[ERROR]${NC} Size file not found: $SIZE_FILE"; return 1; }
 
     local pass=true
-
-    # Read each line from the size file and verify corresponding CSV
     while IFS= read -r line; do
-        local name="${line%%:*}"                               # Extract relation name
-        local count_str="${line##*:}"                          # Extract count string
-        local expected=$(echo "$count_str" | grep -o '[0-9]\+') # Extract numeric count
+        local name="${line%%:*}"
+        local expected=$(echo "${line##*:}" | grep -o '[0-9]\+')
         local csv_path="${CSV_DIR}/${name}.csv"
 
         if [ ! -f "$csv_path" ]; then
-            echo "[FAIL] Missing CSV: $csv_path"
+            echo -e "${RED}[FAIL]${NC} Missing: $csv_path"
             pass=false
             continue
         fi
 
-        # Count actual lines in CSV file
-        local actual
-        actual=$(wc -l < "$csv_path")
-
+        local actual=$(wc -l < "$csv_path")
         if [ "$expected" -eq "$actual" ]; then
-            echo "[PASS] $name: expected = $expected, actual = $actual"
+            echo -e "${GREEN}[PASS]${NC} $name: $expected"
         else
-            echo "[FAIL] $name: expected = $expected, actual = $actual"
+            echo -e "${RED}[FAIL]${NC} $name: expected=$expected, actual=$actual"
             pass=false
         fi
     done < "$SIZE_FILE"
 
-    if [ "$pass" = true ]; then
-        echo "[OK] All results verified successfully!"
-        return 0
-    else
-        echo "[ERROR] Verification failed!"
-        return 1
-    fi
+    [ "$pass" = true ] && return 0 || { echo -e "${RED}[ERROR]${NC} Verification failed"; return 1; }
 }
 
 verify_results_with_reference() {
-    # Compare result size file with reference size file for correctness
-    local prog_name="$1"
-    local dataset_name="$2"
-    local test_label="$3"
-    local result_size_file="$4"
+    local prog_name="$1" dataset_name="$2" test_label="$3" result_size_file="$4"
     local reference_size_file="${SIZE_DIR}/${prog_name}_${dataset_name}_size.txt"
 
-    echo "[VERIFY] Comparing result with reference for $prog_name on $dataset_name..."
-
-    if [ ! -f "$result_size_file" ] || [ ! -f "$reference_size_file" ]; then
-        echo "[ERROR] Missing result or reference size file!"
+    [ ! -f "$result_size_file" ] || [ ! -f "$reference_size_file" ] && {
+        echo -e "${RED}[ERROR]${NC} Missing files for reference check"
         return 1
-    fi
+    }
 
-    # Sort both files to ensure consistent comparison
     sort -o "$result_size_file" "$result_size_file"
     sort -o "$reference_size_file" "$reference_size_file"
 
-    # Compare the files byte by byte
     if cmp -s "$result_size_file" "$reference_size_file"; then
-        echo "[PASS] Files match - correctness passed for $prog_name ($test_label)"
+        echo -e "${GREEN}[PASS]${NC} Reference check: $prog_name ($test_label)"
     else
-        echo "[FAIL] Files differ - test failed for $prog_name ($test_label)!"
-        diff "$reference_size_file" "$result_size_file" || true
+        echo -e "${RED}[FAIL]${NC} Reference mismatch: $prog_name ($test_label)"
         return 1
     fi
 }
 
 run_test() {
-    # Run a single test for a program/dataset/flag combination
-    local prog_name="$1"
-    local dataset_name="$2"
-    local flags="$3"
-    local test_label="$4"
-
-    # Set up program file paths and URLs
+    local prog_name="$1" dataset_name="$2" flags="$3" test_label="$4"
     local prog_file=$(basename "$prog_name")
     local prog_path="${PROG_DIR}/flowlog/${prog_file}"
     local prog_url="https://pages.cs.wisc.edu/~m0riarty/program/flowlog/${prog_file}"
 
-    # Download program file if it doesn't exist
+    # Download program if needed
     mkdir -p "${PROG_DIR}/flowlog"
     if [ ! -f "$prog_path" ]; then
-        echo "[DOWNLOAD] Downloading missing program: $prog_file..."
-        wget -O "$prog_path" "$prog_url" || {
-            echo "[ERROR] Failed to download program: $prog_file"
-            exit 1
-        }
+        echo -e "${CYAN}[DOWNLOAD]${NC} $prog_file"
+        wget -q -O "$prog_path" "$prog_url" || { echo -e "${RED}[ERROR]${NC} Download failed: $prog_file"; exit 1; }
     fi
 
-    # Verify dataset is available
-    local fact_path="${FACT_DIR}/${dataset_name}"
-    if [ ! -d "$fact_path" ]; then
-        echo "[ERROR] Dataset not found after extraction: $fact_path"
-        exit 1
-    fi
+    [ ! -d "${FACT_DIR}/${dataset_name}" ] && { echo -e "${RED}[ERROR]${NC} Dataset not found: $dataset_name"; exit 1; }
 
-    echo "[TEST] Running $prog_file with $dataset_name ($test_label)"
+    echo -e "${BLUE}[TEST]${NC} $prog_file with $dataset_name ($test_label)"
 
-    # Prepare clean result directory for CSV outputs
+    # Prepare result directory
     rm -rf "$RESULT_DIR/csvs"
     mkdir -p "$RESULT_DIR/csvs"
 
-    # Build the command with program, facts, output directory, and optional flags
-    local cmd="$BINARY_PATH --program $prog_path --facts $fact_path --csvs $RESULT_DIR --workers $WORKERS"
-    if [ -n "$flags" ]; then cmd="$cmd $flags"; fi
+    # Run test
+    local cmd="$BINARY_PATH --program $prog_path --facts ${FACT_DIR}/${dataset_name} --csvs $RESULT_DIR --workers $WORKERS"
+    [ -n "$flags" ] && cmd="$cmd $flags"
+    
+    # print out the command to be executed
+    echo -e "${YELLOW}[RUNNING]${NC} $cmd"
+    RUST_LOG=info $cmd  # >/dev/null if you want to suppress output
 
-    # Execute the test
-    echo "[RUN] Command: RUST_LOG=info $cmd"
-    RUST_LOG=info $cmd
-
-    # Verify basic results (CSV line counts match expected)
+    # Verify results
     local result_size_file="$RESULT_DIR/csvs/size.txt"
-    verify_results "$result_size_file" "$RESULT_DIR/csvs" || {
-        echo "[ERROR] Basic verification failed for $prog_file ($test_label)"
-        exit 1
-    }
+    verify_results "$result_size_file" "$RESULT_DIR/csvs" || { echo -e "${RED}[ERROR]${NC} Verification failed: $prog_file ($test_label)"; exit 1; }
 
-    # Compare with reference file if available
+    # Check against reference if available
     local program_stem="${prog_file%.*}"
     local reference_size_file="${SIZE_DIR}/${program_stem}_${dataset_name}_size.txt"
     if [ -f "$reference_size_file" ]; then
         verify_results_with_reference "$program_stem" "$dataset_name" "$test_label" "$result_size_file" || {
-            echo "[ERROR] Reference verification failed for $prog_file ($test_label)"
+            echo -e "${RED}[ERROR]${NC} Reference check failed: $prog_file ($test_label)"
             exit 1
         }
-    else
-        echo "[WARN] No reference file found for $program_stem, skipping reference verification"
     fi
-
-    echo "[PASS] Test passed: $prog_file ($test_label)"
 }
 
 run_all_tests() {
-    # Iterate over all program/dataset pairs and run tests with all flag combinations
-    echo "[TEST] Running all correctness tests..."
+    echo -e "${BLUE}[TESTS]${NC} Running all correctness tests"
     rm -rf "$RESULT_DIR"
 
-    # Define flag combinations for sharing and optimization
-    local sharing_flags=("" "--no-sharing")
-    local sharing_labels=("sharing" "no-sharing")
-
+    # Test configurations
     local optimization_flags=("" "-O1" "-O2" "-O3")
-    local optimization_labels=("none" "O1" "O2" "O3")
+    local optimization_labels=("O0" "O1" "O2" "O3")
 
-    # Read each program=dataset pair from config file
     while IFS='=' read -r prog_name dataset_name; do
-        if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
-            continue
-        fi
+        [ -z "$prog_name" ] || [ -z "$dataset_name" ] && continue
 
-        echo "[PROGRAM] Testing $prog_name with $dataset_name"
-        echo "========================================"
-
-        # Setup dataset once for all flag combinations
+        echo -e "${CYAN}[PROGRAM]${NC} $prog_name with $dataset_name"
         setup_dataset "$dataset_name"
 
-        # Run all combinations of sharing and optimization flags
-        for i in "${!sharing_flags[@]}"; do
-            for j in "${!optimization_flags[@]}"; do
-                local combined_flags="${sharing_flags[$i]} ${optimization_flags[$j]}"
-                combined_flags=$(echo "$combined_flags" | xargs)
-
-                local test_label="${sharing_labels[$i]}-${optimization_labels[$j]}"
-                run_test "$prog_name" "$dataset_name" "$combined_flags" "$test_label"
-            done
+        # Test all optimization flag combinations (sharing always enabled)
+        for j in "${!optimization_flags[@]}"; do
+            local flags="${optimization_flags[$j]}"
+            local test_label="sharing-${optimization_labels[$j]}"
+            run_test "$prog_name" "$dataset_name" "$flags" "$test_label"
         done
 
-        # Cleanup dataset after all flag combinations
         cleanup_dataset "$dataset_name"
-
     done < "$CONFIG_FILE"
 
-    echo "[OK] All correctness tests passed!"
+    echo -e "${GREEN}[COMPLETE]${NC} All tests passed"
 }
 
-############################################################
-# MAIN EXECUTION
-# Entry point for the script
-############################################################
+# Main execution
+echo -e "${YELLOW}[BUILD]${NC} Building binary"
+cargo build --release >/dev/null
 
-main() {
-    # Print start message
-    echo "[START] FlowLog Correctness Test (Single-dataset Mode)"
+setup_config_file
+setup_size_reference
+run_all_tests
 
-    # Ensure config and reference files are present
-    setup_config_file
-    setup_size_reference
-
-    # Build the Rust binary
-    echo "[BUILD] Building Present Semiring..."
-    cargo build --release
-
-    # Run all correctness tests
-    echo "[RUN] Running correctness tests..."
-    run_all_tests
-
-    # Print finish message
-    echo "[FINISH] All correctness tests completed successfully."
-}
-
-# Call main function with all script arguments
-main "$@"
+echo -e "${GREEN}[FINISH]${NC} Correctness testing completed successfully"

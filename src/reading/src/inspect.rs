@@ -254,8 +254,8 @@ pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
                 Ok(content) => Some(content),
                 Err(_) => {
                     if worker_id == 0 {
-                        // log an error
-                        error!("Warning: missing or unreadable file {}", part_path);
+                        // log a warning
+                        debug!("Warning: missing or unreadable file {}", part_path);
                     }
                     None
                 }

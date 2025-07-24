@@ -1,192 +1,107 @@
 #!/bin/bash
-# Exit immediately if a command exits with a non-zero status
 set -e
 
-############################################################
-# OPTIMIZATION TIMING TEST SCRIPT
-# This script measures execution time for FlowLog programs
-# with different optimization levels (-O1, -O2, -O3)
-############################################################
+echo "[START] FlowLog Optimization Timing Test"
 
-############################################################
-# CONFIGURATION
-# Define paths and parameters for timing tests
-############################################################
-
-CONFIG_FILE="./test/correctness_test/config.txt"      # Program/dataset pairs configuration
-PROG_DIR="./test/correctness_test/program"            # Program files directory
-FACT_DIR="./test/correctness_test/dataset"            # Dataset files directory
-TIME_DIR="./result/time"                              # Timing results directory
-BINARY_PATH="./target/release/executing"              # Path to compiled binary
-WORKERS=64                                             # Number of worker threads
-
-############################################################
-# DATASET SETUP
-# Functions to download, extract, and clean up datasets
-############################################################
+# Configuration
+CONFIG_FILE="./test/correctness_test/config.txt"
+PROG_DIR="./test/correctness_test/program"
+FACT_DIR="./test/correctness_test/dataset"
+TIME_DIR="./result/time"
+BINARY_PATH="./target/release/executing"
+WORKERS=64
 
 setup_dataset() {
-    # Download and extract dataset if not already present
     local dataset_name="$1"
     local dataset_zip="./test/correctness_test/dataset/${dataset_name}.zip"
     local extract_path="${FACT_DIR}/${dataset_name}"
     local dataset_url="https://pages.cs.wisc.edu/~m0riarty/dataset/${dataset_name}.zip"
 
-    # Check if dataset is already extracted
-    if [ -d "$extract_path" ]; then
-        echo "[OK] Dataset $dataset_name already extracted. Skipping."
-        return
-    fi
+    [ -d "$extract_path" ] && { echo "[OK] Dataset $dataset_name already extracted"; return; }
 
     mkdir -p "$FACT_DIR"
-
-    # Download dataset if zip file doesn't exist
     if [ ! -f "$dataset_zip" ]; then
-        echo "[DOWNLOAD] Downloading $dataset_name.zip from $dataset_url..."
-        mkdir -p "$(dirname "$dataset_zip")"
-        wget -O "$dataset_zip" "$dataset_url" || {
-            echo "[ERROR] Failed to download dataset: $dataset_name"
-            exit 1
-        }
+        echo "[DOWNLOAD] $dataset_name.zip"
+        wget -q -O "$dataset_zip" "$dataset_url" || { echo "[ERROR] Download failed: $dataset_name"; exit 1; }
     fi
 
-    # Extract the dataset
-    echo "[EXTRACT] Extracting $dataset_name..."
+    echo "[EXTRACT] $dataset_name"
     unzip -q "$dataset_zip" -d "$FACT_DIR"
-    echo "[OK] Dataset $dataset_name ready."
 }
 
 cleanup_dataset() {
-    # Remove extracted dataset to save space
     local dataset_name="$1"
-    local extract_path="${FACT_DIR}/${dataset_name}"
-
-    echo "[CLEANUP] Removing dataset $dataset_name..."
-    rm -rf "$extract_path"
+    echo "[CLEANUP] $dataset_name"
+    rm -rf "${FACT_DIR}/${dataset_name}"
 }
 
 setup_config_file() {
-    # Download config.txt if missing and fix line endings
-    if [ -f "$CONFIG_FILE" ]; then
-        echo "[OK] Config file already exists. Skipping download."
-        return
-    fi
-
-    echo "[DOWNLOAD] Downloading config.txt..."
+    [ -f "$CONFIG_FILE" ] && return
+    echo "[DOWNLOAD] config.txt"
     mkdir -p "$(dirname "$CONFIG_FILE")"
-    wget -O "$CONFIG_FILE" https://pages.cs.wisc.edu/~m0riarty/config.txt
-
-    # Fix line endings (convert DOS to Unix format)
-    echo "[FIX] Fixing line endings in config.txt..."
+    wget -q -O "$CONFIG_FILE" https://pages.cs.wisc.edu/~m0riarty/config.txt
     dos2unix "$CONFIG_FILE" 2>/dev/null || true
-    echo "[OK] Config file ready."
 }
 
-############################################################
-# TIMING FUNCTIONS
-# Functions to run timing tests and measure performance
-############################################################
-
-run_single_timing_test() {
-    # Run a single timing test for a program/dataset/optimization combination
-    local prog_name="$1"
-    local dataset_name="$2"
-    local optimization_flag="$3"
-    local optimization_label="$4"
-
-    # Set up program file paths and URLs
+run_timing_test() {
+    local prog_name="$1" dataset_name="$2" optimization_flag="$3" optimization_label="$4"
     local prog_file=$(basename "$prog_name")
     local prog_path="${PROG_DIR}/flowlog/${prog_file}"
     local prog_url="https://pages.cs.wisc.edu/~m0riarty/program/flowlog/${prog_file}"
 
-    # Download program file if it doesn't exist
+    # Download program if needed
     mkdir -p "${PROG_DIR}/flowlog"
     if [ ! -f "$prog_path" ]; then
-        echo "[DOWNLOAD] Downloading missing program: $prog_file..."
-        wget -O "$prog_path" "$prog_url" || {
-            echo "[ERROR] Failed to download program: $prog_file"
-            exit 1
-        }
+        echo "[DOWNLOAD] $prog_file"
+        wget -q -O "$prog_path" "$prog_url" || { echo "[ERROR] Download failed: $prog_file"; exit 1; }
     fi
-    
-    # Set up paths for timing test
-    local fact_path="${FACT_DIR}/${dataset_name}"
-    local program_stem="${prog_name%.*}"
-    local time_file="${TIME_DIR}/${program_stem}_${dataset_name}_${optimization_label}.txt"
 
-    echo "[TIMING] Running $prog_name with $dataset_name ($optimization_label)"
+    echo "[TIMING] $prog_name with $dataset_name ($optimization_label)"
 
-    # Ensure time directory exists
-    mkdir -p "$TIME_DIR"
-
-    # Run the binary with specified optimization flag (timing captured by binary)
-    echo "[RUN] Timing test: $prog_name ($optimization_label)"
-
+    # Run the binary with optimization flag
     if [ -z "$optimization_flag" ]; then
-        "$BINARY_PATH" --program "$prog_path" --facts "$fact_path" --workers "$WORKERS"
+        "$BINARY_PATH" --program "$prog_path" --facts "${FACT_DIR}/${dataset_name}" --workers "$WORKERS"
     else
-        "$BINARY_PATH" --program "$prog_path" --facts "$fact_path" --workers "$WORKERS" "$optimization_flag"
+        "$BINARY_PATH" --program "$prog_path" --facts "${FACT_DIR}/${dataset_name}" --workers "$WORKERS" "$optimization_flag"
     fi
-
-    echo "[TIMING] Completed $prog_name ($optimization_label)"
 }
 
 run_all_timing_tests() {
-    # Run timing tests for all programs with all optimization levels
-    echo "[TIMING] Running optimization timing tests..."
+    echo "[TIMING] Running optimization timing tests"
+    rm -rf "$TIME_DIR"
+    mkdir -p "$TIME_DIR"
 
     # Define optimization flags and labels
     local optimizations=("" "-O1" "-O2" "-O3")
     local opt_labels=("none" "1" "2" "3")
 
-    # Clean previous timing results
-    rm -rf "$TIME_DIR"
-    mkdir -p "$TIME_DIR"
-
-    # Read each program=dataset pair from config file
     while IFS='=' read -r prog_name dataset_name; do
-        if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
-            continue
-        fi
+        [ -z "$prog_name" ] || [ -z "$dataset_name" ] && continue
 
-        echo "[PROGRAM] Timing $prog_name with $dataset_name"
-        echo "========================================"
-
-        # Setup dataset once for all optimization levels
+        echo "[PROGRAM] $prog_name with $dataset_name"
         setup_dataset "$dataset_name"
 
         # Run tests with all optimization levels
         for i in "${!optimizations[@]}"; do
-            run_single_timing_test "$prog_name" "$dataset_name" "${optimizations[$i]}" "${opt_labels[$i]}"
+            run_timing_test "$prog_name" "$dataset_name" "${optimizations[$i]}" "${opt_labels[$i]}"
         done
 
-        # Cleanup dataset after all optimization tests
         cleanup_dataset "$dataset_name"
     done < "$CONFIG_FILE"
 
-    echo "[OK] All timing tests completed!"
+    echo "[OK] All timing tests completed"
 }
 
-############################################################
-# RESULT GENERATION FUNCTIONS
-# Functions to generate timing results table and CSV
-############################################################
-
 generate_timing_table() {
-    # Generate and display a formatted table of timing results
     echo ""
-    echo "============================"
     echo "[SUMMARY] Timing Results Table"
-    echo "============================"
+    echo "=============================="
 
-    printf "| %-20s | %-17s | %-17s | %-17s | %-17s |\n" "Program-Dataset" "No Optimization" "O1" "O2" "O3"
+    printf "| %-20s | %-17s | %-17s | %-17s | %-17s |\n" "Program-Dataset" "O0" "O1" "O2" "O3"
     printf "|----------------------|-------------------|-------------------|-------------------|-------------------|\n"
 
-    # Read each program=dataset pair and display timing results
     while IFS='=' read -r prog_name dataset_name; do
-        if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
-            continue
-        fi
+        [ -z "$prog_name" ] || [ -z "$dataset_name" ] && continue
 
         local program_stem="${prog_name%.*}"
         local label="${program_stem}_${dataset_name}"
@@ -196,9 +111,9 @@ generate_timing_table() {
         for opt in "none" "1" "2" "3"; do
             local time_file="${TIME_DIR}/${program_stem}_${dataset_name}_${opt}.txt"
             if [ -f "$time_file" ]; then
-                elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" || echo "             N/A")
+                elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" 2>/dev/null || echo "N/A")
             else
-                elapsed_time="             N/A"
+                elapsed_time="N/A"
             fi
 
             if [[ "$elapsed_time" =~ ^[0-9] ]]; then
@@ -207,26 +122,19 @@ generate_timing_table() {
                 printf "| %-17s " "$elapsed_time"
             fi
         done
-
         printf "|\n"
     done < "$CONFIG_FILE"
 }
 
 generate_timing_csv() {
-    # Generate CSV file with timing results for analysis
     echo ""
-    echo "[CSV] Generating timing CSV file..."
+    echo "[CSV] Generating timing CSV file"
 
     local csv_file="${TIME_DIR}/timing_results.csv"
+    echo "Program,Dataset,O0,O1,O2,O3" > "$csv_file"
 
-    # Write CSV header
-    echo "Program,Dataset,No_Optimization,O1,O2,O3" > "$csv_file"
-
-    # Read each program=dataset pair and write timing data
     while IFS='=' read -r prog_name dataset_name; do
-        if [ -z "$prog_name" ] || [ -z "$dataset_name" ]; then
-            continue
-        fi
+        [ -z "$prog_name" ] || [ -z "$dataset_name" ] && continue
 
         local program_stem="${prog_name%.*}"
         printf "%s,%s" "$program_stem" "$dataset_name" >> "$csv_file"
@@ -235,47 +143,25 @@ generate_timing_csv() {
         for opt in "none" "1" "2" "3"; do
             local time_file="${TIME_DIR}/${program_stem}_${dataset_name}_${opt}.txt"
             if [ -f "$time_file" ]; then
-                elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" || echo "N/A")
+                elapsed_time=$(grep -oP '^[0-9]+\.[0-9]+' "$time_file" 2>/dev/null || echo "N/A")
             else
                 elapsed_time="N/A"
             fi
             printf ",%s" "$elapsed_time" >> "$csv_file"
         done
-
         printf "\n" >> "$csv_file"
     done < "$CONFIG_FILE"
 
     echo "[CSV] Timing results saved to: $csv_file"
 }
 
-############################################################
-# MAIN EXECUTION
-# Entry point for the script
-############################################################
+# Main execution
+echo "[BUILD] Building binary"
+cargo build --release >/dev/null
 
-main() {
-    # Print start message
-    echo "[START] FlowLog Optimization Timing Test"
+setup_config_file
+run_all_timing_tests
+generate_timing_table
+generate_timing_csv
 
-    # Ensure config file is present
-    setup_config_file
-
-    echo "=== SETUP COMPLETE ==="
-
-    # Build the Rust binary
-    echo "[BUILD] Building the project..."
-    cargo build --release
-
-    # Run all timing tests
-    run_all_timing_tests
-
-    # Generate results in table and CSV format
-    generate_timing_table
-    generate_timing_csv
-
-    # Print finish message
-    echo "[FINISH] All timing test cases completed successfully."
-}
-
-# Call main function with all script arguments
-main "$@"
+echo "[FINISH] All timing tests completed successfully"
