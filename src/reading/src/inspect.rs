@@ -14,7 +14,6 @@ use std::fs::{read_to_string, remove_file, File};
 use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use timely::dataflow::Scope;
 use timely::order::TotalOrder;
 use tracing::{debug, error, info};
@@ -275,23 +274,6 @@ pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
         let part_path = format!("{}{}", output_path, worker_id);
         let _ = remove_file(&part_path);
     }
-}
-
-/// Records the elapsed time (in seconds) to a file.
-///
-/// Appends the elapsed time to the specified file.  
-/// Automatically creates directories and reuses file handles.
-///
-/// # Arguments
-///
-/// - `file_path`: The path to the file.
-/// - `time_elapsed`: Time elapsed in seconds (f64).
-pub fn record_time(file_path: &str, time_elapsed: Duration) {
-    let file_handle = get_file_handle(file_path);
-    let seconds = time_elapsed.as_secs_f64();
-    let mut file = file_handle.lock().unwrap();
-    writeln!(file, "{:.6} seconds elapsed", seconds)
-        .expect(&format!("Can not write time to file: {}", file_path));
 }
 
 /// Closes all open file handles
