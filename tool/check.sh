@@ -63,8 +63,8 @@ setup_size_reference() {
 }
 
 verify_results() {
-    local SIZE_FILE="${1:-./result/csvs/size.txt}"
-    local CSV_DIR="${2:-./result/csvs}"
+    local SIZE_FILE="${1:-./result/csvs/size.txt}"  # the output size.txt
+    local CSV_DIR="${2:-./result/csvs}" # the output idb.csv (check if it matches the size.txt)
 
     [ ! -f "$SIZE_FILE" ] && { echo -e "${RED}[ERROR]${NC} Size file not found: $SIZE_FILE"; return 1; }
 
@@ -92,7 +92,7 @@ verify_results() {
     [ "$pass" = true ] && return 0 || { echo -e "${RED}[ERROR]${NC} Verification failed"; return 1; }
 }
 
-verify_results_with_reference() {
+verify_results_against_truth() { # check if the result size matches the reference size (i.e. the truth)
     local prog_name="$1" dataset_name="$2" test_label="$3" result_size_file="$4"
     local reference_size_file="${SIZE_DIR}/${prog_name}_${dataset_name}_size.txt"
 
@@ -149,10 +149,12 @@ run_test() {
     local program_stem="${prog_file%.*}"
     local reference_size_file="${SIZE_DIR}/${program_stem}_${dataset_name}_size.txt"
     if [ -f "$reference_size_file" ]; then
-        verify_results_with_reference "$program_stem" "$dataset_name" "$test_label" "$result_size_file" || {
+        verify_results_against_truth "$program_stem" "$dataset_name" "$test_label" "$result_size_file" || {
             echo -e "${RED}[ERROR]${NC} Reference check failed: $prog_file ($test_label)"
             exit 1
         }
+    else
+        echo -e "${YELLOW}[WARNING]${NC} No reference file found for $prog_name with $dataset_name - skipping truth verification"
     fi
 }
 

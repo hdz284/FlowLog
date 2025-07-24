@@ -26,7 +26,7 @@ if ! command -v rustc >/dev/null 2>&1; then
     echo 'source "$HOME/.cargo/env"' >> ~/.bashrc
 else
     echo "[FOUND] Rust already installed"
-    # Ensure cargo is in PATH for current session
+    # Make sure cargo is in PATH for current session
     source "$HOME/.cargo/env" 2>/dev/null || export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
