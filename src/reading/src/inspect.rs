@@ -9,7 +9,7 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::threshold::ThresholdTotal;
 use differential_dataflow::{Collection, ExchangeData, Hashable};
 use std::cell::RefCell;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::fs::{read_to_string, remove_file, File};
 use std::io::Write;
 use std::path::Path;
@@ -42,8 +42,7 @@ fn get_file_handle(path: &str) -> Arc<Mutex<File>> {
             }
 
             // Open file for writing
-            let file =
-                File::create(path).expect(&format!("Can not create output file: {}", path));
+            let file = File::create(path).expect(&format!("Can not create output file: {}", path));
             handles_ref.insert(path_str.clone(), Arc::new(Mutex::new(file)));
         }
 
@@ -83,9 +82,8 @@ where
     let name = name.to_owned();
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
         .lift(|x| Some((x, 1 as i32)))
-        .inspect(move |(data, time, delta)| {
-            debug!("{}: ({}, {:?}, {})", name, data, time, delta)
-        }); // use std::fmt::Display for D (i.e. Row)
+        .inspect(move |(data, time, delta)| debug!("{}: ({}, {:?}, {})", name, data, time, delta));
+    // use std::fmt::Display for D (i.e. Row)
 }
 
 /// Write relation size
@@ -256,7 +254,7 @@ pub fn merge_relation_partitions(output_path: &str, worker_count: usize) {
                 Err(_) => {
                     if worker_id == 0 {
                         // log a warning
-                        warn!("Warning: missing or unreadable segment files of relation {}", output_path);
+                        debug!("Warning: missing or unreadable file {}", part_path);
                     }
                     None
                 }

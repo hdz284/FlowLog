@@ -1,58 +1,40 @@
 #!/bin/bash
 set -e
 
-# =========================
-# ENVIRONMENT SETUP SCRIPT
-# =========================
+echo "[SETUP] Setting up FlowLog development environment..."
 
-echo "[START] FlowLog Environment Setup"
+# Install system packages
+echo "[CHECK] Checking system packages..."
+sudo apt update -qq && sudo apt upgrade -y -qq
 
-# =========================
-# SETUP FUNCTIONS
-# =========================
+packages=()
+command -v htop >/dev/null || packages+=("htop")
+command -v dos2unix >/dev/null || packages+=("dos2unix")
 
-install_system_packages() {
-    echo "[SETUP] Checking system packages..."
-    sudo apt update && sudo apt upgrade -y
-    
-    local packages=()
-    command -v htop >/dev/null || packages+=("htop")
-    command -v dos2unix >/dev/null || packages+=("dos2unix")
-    
-    if [ ${#packages[@]} -gt 0 ]; then
-        echo "[INSTALL] Installing packages: ${packages[*]}"
-        sudo apt install -y "${packages[@]}"
-    else
-        echo "[OK] All required packages already installed"
-    fi
-}
+if [ ${#packages[@]} -gt 0 ]; then
+    echo "[INSTALL] Installing: ${packages[*]}"
+    sudo apt install -y -qq "${packages[@]}"
+fi
 
-install_rust() {
-    if ! command -v rustc >/dev/null; then
-        echo "[INSTALL] Installing Rust..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        export PATH="$HOME/.cargo/bin:$PATH"
-        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
-    else
-        echo "[OK] Rust is already installed"
-    fi
-    
-    echo "[UPDATE] Updating Rust to latest version..."
-    rustup update && rustup default stable
-}
+# Install/update Rust
+if ! command -v rustc >/dev/null 2>&1; then
+    echo "[INSTALL] Installing Rust..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    # Source cargo environment for current session
+    source "$HOME/.cargo/env"
+    # Add to bashrc for future sessions
+    echo 'source "$HOME/.cargo/env"' >> ~/.bashrc
+else
+    echo "[FOUND] Rust already installed"
+    # Make sure cargo is in PATH for current session
+    source "$HOME/.cargo/env" 2>/dev/null || export PATH="$HOME/.cargo/bin:$PATH"
+fi
 
-# =========================
-# MAIN EXECUTION
-# =========================
+echo "[UPDATE] Updating Rust toolchain..."
+rustup update >/dev/null && rustup default stable >/dev/null
 
-main() {
-    install_system_packages
-    install_rust
-    
-    echo "[CHECK] Checking if project compiles..."
-    cargo check
-    
-    echo "[FINISH] Environment setup completed successfully!"
-}
+# Verify Flowlog compiles
+echo "[VERIFY] Verifying Flowlog compilation..."
+cargo check
 
-main "$@"
+echo "[COMPLETE] Environment setup completed successfully!"

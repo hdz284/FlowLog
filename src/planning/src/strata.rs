@@ -13,10 +13,12 @@ pub struct GroupStrataQueryPlan {
     is_recursive: bool,
     rules: Vec<FLRule>,
 
-    enter_scope: HashSet<Arc<CollectionSignature>>, // base and intermediates rel to bring into scope
-    last_signatures_map: HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>, // sinks of the dataflow DAG (map head to a vector of last signatures)
-
+    enter_scope: HashSet<Arc<CollectionSignature>>,                                                    // base and intermediates rel to bring into scope
+    last_signatures_map: HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>,             // sinks of the dataflow DAG (map head to a vector of last signatures)
+    
+    reverse_last_signatures_map: HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>,      // reverse map for the last signatures 
     strata_plan: Vec<Vec<Transformation>>,
+                                                   
 }
 
 impl GroupStrataQueryPlan {
@@ -42,6 +44,17 @@ impl GroupStrataQueryPlan {
                 map
             },
         );
+
+        // populate the reverse_last_signatures_map (map last signature to a its heads)
+        let mut reverse_last_signatures_map: HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>> = HashMap::new();
+        for (head_signature, last_signatures) in last_signatures_map.iter() {
+            for last_signature in last_signatures {
+                reverse_last_signatures_map
+                    .entry(Arc::clone(last_signature))
+                    .or_default()
+                    .push(Arc::clone(head_signature));
+            }
+        }
 
         /* init */
         let mut strata_plan = Vec::new();
@@ -76,7 +89,8 @@ impl GroupStrataQueryPlan {
             rules,
             enter_scope,
             last_signatures_map,
-            strata_plan,
+            reverse_last_signatures_map,
+            strata_plan
         }
     }
 
@@ -200,7 +214,12 @@ impl GroupStrataQueryPlan {
 
     // head collection signatures of the strata
     pub fn head_signatures_set(&self) -> HashSet<Arc<CollectionSignature>> {
-        self.last_signatures_map.keys().cloned().collect()
+        self.last_signatures_map
+            .keys()
+            // (sideways) jump over sip rules
+            .filter(|signature| !signature.name().contains("_sip"))
+            .cloned()
+            .collect()
     }
 
     // heads (name and arity) of the strata
@@ -215,6 +234,10 @@ impl GroupStrataQueryPlan {
         &self,
     ) -> &HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>> {
         &self.last_signatures_map
+    }
+
+    pub fn reverse_last_signatures_map(&self) -> &HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>> {
+        &self.reverse_last_signatures_map
     }
 
     pub fn enter_scope_set(&self) -> &HashSet<Arc<CollectionSignature>> {
