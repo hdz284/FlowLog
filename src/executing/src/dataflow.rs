@@ -70,7 +70,9 @@ pub fn program_execution(
             }
             
 
-            for group_plan in group_plans.iter() {
+            for (group_plan_idx, group_plan) in group_plans.iter().enumerate() {
+                let is_last_group_plan = group_plan_idx == group_plans.len() - 1; // last group plan is the final strata (must print size)
+                
                 if !group_plan.is_recursive() {
                     /* construct dataflow for a non-recursive strata */ 
                     for next_transformation in group_plan.strata_plan() {
@@ -174,7 +176,7 @@ pub fn program_execution(
                     );
     
                     /* inspect idbs of the non-recursive strata (optional) */
-                    if tracing::level_enabled!(tracing::Level::DEBUG) {
+                    if tracing::level_enabled!(tracing::Level::DEBUG) || is_last_group_plan {
                         inspector(
                             &group_plan.head_signatures_set(), 
                             &mut row_map,
