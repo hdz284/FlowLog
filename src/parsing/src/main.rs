@@ -1,7 +1,7 @@
 use parsing::parser::Lexeme;
 use parsing::{FlowLogParser, Parser, Rule};
 use std::fs;
-use tracing::{info, debug};
+use tracing::{debug, info};
 use tracing_subscriber::EnvFilter;
 
 fn main() {
@@ -30,7 +30,7 @@ fn main() {
 
     // print_rule(parsed_rule, 0); // print the parsed rule
     // print_rule_as_tree(parsed_rule, 0, true); // print the parsed rule as a tree
-   
+
     debug!(
         "{}",
         parsing::parser::Program::from_parsed_rule(parsed_rule)
@@ -45,12 +45,11 @@ fn main() {
 //     let rule_span = rule.as_span();              // returns a span of the input string
 //     let rule_str = rule_span.as_str();           // returns a string slice of the input string
 
-//     debug!("{}{:?} >> {}", indent, rule_name, rule_str); 
-    
+//     debug!("{}{:?} >> {}", indent, rule_name, rule_str);
+
 //     rule.into_inner()
 //         .for_each(|rule| print_rule(rule, depth + 1));
 // }
-
 
 // fn print_rule_as_tree(rule: pest::iterators::Pair<Rule>, depth: usize, is_last: bool) {
 //     let indent = if depth == 0 {

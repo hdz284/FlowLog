@@ -1,6 +1,6 @@
-use std::fmt;
-use std::collections::{HashMap, HashSet};
 use parsing::rule::Const;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 use crate::atoms::AtomArgumentSignature;
 
@@ -10,14 +10,18 @@ pub struct BaseFilters {
     var_eq_map: HashMap<AtomArgumentSignature, AtomArgumentSignature>,
 
     // constant equality constraints (e.g., arc(x, 5) or arc(x, y), y = 6)
-    const_map: HashMap<AtomArgumentSignature, Const>, 
+    const_map: HashMap<AtomArgumentSignature, Const>,
 
     // placeholder set for redundant variables
     placeholder_set: HashSet<AtomArgumentSignature>,
 }
 
 impl BaseFilters {
-    pub fn new(var_eq_map: HashMap<AtomArgumentSignature, AtomArgumentSignature>, const_map: HashMap<AtomArgumentSignature, Const>, placeholder_set: HashSet<AtomArgumentSignature>) -> Self {
+    pub fn new(
+        var_eq_map: HashMap<AtomArgumentSignature, AtomArgumentSignature>,
+        const_map: HashMap<AtomArgumentSignature, Const>,
+        placeholder_set: HashSet<AtomArgumentSignature>,
+    ) -> Self {
         Self {
             var_eq_map,
             const_map,
@@ -38,16 +42,15 @@ impl BaseFilters {
     }
 
     pub fn is_const_or_var_eq_or_placeholder(&self, arg: &AtomArgumentSignature) -> bool {
-        self.var_eq_map.contains_key(arg) || self.const_map.contains_key(arg) || self.placeholder_set.contains(arg)
+        self.var_eq_map.contains_key(arg)
+            || self.const_map.contains_key(arg)
+            || self.placeholder_set.contains(arg)
     }
 
     pub fn is_empty(&self) -> bool {
         self.var_eq_map.is_empty() && self.const_map.is_empty() && self.placeholder_set.is_empty()
     }
 }
-
-
-
 
 impl fmt::Display for BaseFilters {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

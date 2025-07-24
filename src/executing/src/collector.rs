@@ -1,24 +1,29 @@
-use std::sync::Arc;
-use std::collections::{HashSet, HashMap};
+use crate::aggregation::*;
+use catalog::head::HeadIDB;
+use macros::codegen_aggregation;
 use planning::collections::CollectionSignature;
-use differential_dataflow::lattice::Lattice;
-use timely::order::TotalOrder;
-use itertools::Itertools;
-
-use reading::rel::Rel;
 use reading::inspect::printsize_generic;
-// use reading::inspect::print_generic;
+use reading::rel::{row_chop, Rel};
+
+use differential_dataflow::lattice::Lattice;
+use differential_dataflow::operators::reduce::ReduceCore;
+use differential_dataflow::trace::implementations::{ValBuilder, ValSpine};
+use itertools::Itertools;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use timely::order::TotalOrder;
 
 pub fn non_recursive_collector<G>(
     last_signatures_map: &HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>,
-    row_map: &mut HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>
+    row_map: &mut HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>,
+    idb_catalogs: &HashMap<String, HeadIDB>,
 ) where
     G: timely::dataflow::scopes::Scope,
-    G::Timestamp: Lattice+TotalOrder,
+    G::Timestamp: Lattice + TotalOrder,
 {
     for (head_signature, last_signatures) in last_signatures_map
         .iter()
-        .sorted_by_key(|(signature, _)| signature.name()) 
+        .sorted_by_key(|(signature, _)| signature.name())
     {
         let init_rel = last_signatures
             .first()
@@ -32,7 +37,7 @@ pub fn non_recursive_collector<G>(
                 Arc::clone(row_map.get(signature).expect("last signature missing when concatenate"))
             });
 
-        let head_rel = match row_map.get(head_signature) {
+        let input_rel = match row_map.get(head_signature) {
             Some(head_rel) => {
                 let full = std::iter::once(Arc::clone(init_rel)).chain(concat_rels);
                 Arc::new(head_rel.concatenate(full))
@@ -46,24 +51,31 @@ pub fn non_recursive_collector<G>(
             }
         };
 
-        row_map.insert(Arc::clone(head_signature), head_rel);
+        let idb_catalog = idb_catalogs
+            .get(head_signature.name())
+            .expect("couldn't find catalog metadata for idb head");
+        if idb_catalog.is_aggregation() {
+            let aggregation = idb_catalog.aggregation();
+            let output_rel = Arc::new(codegen_aggregation!());
+            row_map.insert(Arc::clone(head_signature), output_rel);
+        } else {
+            row_map.insert(Arc::clone(head_signature), input_rel);
+        }
     }
 }
-
-
-
 
 pub fn recursive_collector<G>(
     last_signatures_map: &HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>,
     nest_row_map: &HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>,
-    variables_next_map: &mut HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>
+    variables_next_map: &mut HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>,
+    idb_catalogs: &HashMap<String, HeadIDB>,
 ) where
     G: timely::dataflow::scopes::Scope,
-    G::Timestamp: Lattice+TotalOrder,
-{   
+    G::Timestamp: Lattice + TotalOrder,
+{
     for (head_signature, last_signatures) in last_signatures_map
         .iter()
-        .sorted_by_key(|(signature, _)| signature.name()) 
+        .sorted_by_key(|(signature, _)| signature.name())
     {
         // (sideways) jump over sip rules
         // We do not collect sip rules in the collector, we store them in the next row map
@@ -85,7 +97,7 @@ pub fn recursive_collector<G>(
                 Arc::clone(nest_row_map.get(signature).expect("last signature missing when concatenate"))
             });
 
-        let head_rel = match variables_next_map.get(head_signature) {
+        let input_rel = match variables_next_map.get(head_signature) {
             Some(head_rel) => {
                 let full = std::iter::once(Arc::clone(init_rel)).chain(concat_rels);
                 head_rel.concatenate(full).threshold()
@@ -99,30 +111,37 @@ pub fn recursive_collector<G>(
             }
         };
 
-        variables_next_map.insert(Arc::clone(head_signature), Arc::new(head_rel));
+        let idb_catalog = idb_catalogs
+            .get(head_signature.name())
+            .expect("couldn't find catalog metadata for idb head");
+
+        if idb_catalog.is_aggregation() {
+            let aggregation = idb_catalog.aggregation();
+            let output_rel = Arc::new(codegen_aggregation!());
+            variables_next_map.insert(Arc::clone(head_signature), output_rel);
+        } else {
+            variables_next_map.insert(Arc::clone(head_signature), Arc::new(input_rel));
+        }
     }
 }
 
-
-
 pub fn inspector<G>(
-    head_signatures_set: &HashSet<Arc<CollectionSignature>>, 
-    inspect_map: &mut HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>, 
-    is_recursive: bool
+    head_signatures_set: &HashSet<Arc<CollectionSignature>>,
+    inspect_map: &mut HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>,
+    is_recursive: bool,
 ) where
     G: timely::dataflow::scopes::Scope,
     G::Timestamp: Lattice + TotalOrder,
 {
     for head_signature in head_signatures_set
         .iter()
-        .sorted_by_key(|signature| signature.name()) 
+        .sorted_by_key(|signature| signature.name())
     {
-        let entry = inspect_map.get_mut(head_signature)
-            .expect(if is_recursive {
-                "recursive head signature absent"
-            } else {
-                "non-recursive head signature absent"
-            });
+        let entry = inspect_map.get_mut(head_signature).expect(if is_recursive {
+            "recursive head signature absent"
+        } else {
+            "non-recursive head signature absent"
+        });
 
         *entry = Arc::new(entry.threshold());
         printsize_generic(entry, head_signature.name(), is_recursive);

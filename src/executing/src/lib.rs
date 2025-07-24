@@ -1,14 +1,11 @@
-
+pub mod aggregation;
+pub mod arg;
 pub mod collector;
-pub mod map;
-pub mod jn;
 pub mod compare;
+pub mod dataflow;
+pub mod jn;
+pub mod map;
 pub mod transformer;
 
-pub mod dataflow;
-pub mod arg;
-
-pub type Time = (); 
+pub type Time = ();
 pub type Iter = u16;
-
-

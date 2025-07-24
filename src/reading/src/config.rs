@@ -1,13 +1,13 @@
 //! Build-time configuration constants for FlowLog
-//! 
+//!
 //! These constants control the compile-time code generation and runtime limits
 //! for various operations in the FlowLog engine.
 
 /// Maximum arity for key-value in code generation
-pub const KV_MAX: usize = 6;
+pub const KV_MAX: usize = 2;
 
 /// Maximum arity for row in code generation  
-pub const ROW_MAX: usize = 8;
+pub const ROW_MAX: usize = 2;
 
 /// Maximum arity for product in code generation
 pub const PROD_MAX: usize = 2;

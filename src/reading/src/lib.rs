@@ -1,13 +1,13 @@
-pub mod reader; 
-pub mod row;
-pub mod rel;
-pub mod inspect;
 pub mod arrangements;
-pub mod session;
 pub mod config;
+pub mod inspect;
+pub mod reader;
+pub mod rel;
+pub mod row;
+pub mod session;
 
 // export configuration constants for backwards compatibility
-pub use config::{FALLBACK_ARITY, KV_MAX, ROW_MAX, PROD_MAX};
+pub use config::{FALLBACK_ARITY, KV_MAX, PROD_MAX, ROW_MAX};
 
 // feature propagation through dependency chain && mutually exclusive feature configuration
 // workspace
@@ -19,9 +19,8 @@ pub use config::{FALLBACK_ARITY, KV_MAX, ROW_MAX, PROD_MAX};
 // reading crate
 //     ↓ compiles with isize type
 
-pub type Time = (); 
+pub type Time = ();
 pub type Iter = u16;
-
 
 // Conditional compilation for semiring type selection
 #[cfg(all(feature = "present-type", not(feature = "isize-type")))]
@@ -56,7 +55,3 @@ pub const SEMIRING_TYPE: &str = "Present";
 
 #[cfg(all(feature = "isize-type", not(feature = "present-type")))]
 pub const SEMIRING_TYPE: &str = "isize";
-
-
-
-
