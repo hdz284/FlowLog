@@ -16,7 +16,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use timely::dataflow::Scope;
 use timely::order::TotalOrder;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 use crate::rel::Rel;
 use crate::semiring_one;
