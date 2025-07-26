@@ -407,6 +407,10 @@ pub fn codegen_min_optimize(_: TokenStream) -> TokenStream {
         arms.push(quote! {
             #arity => Rel::#final_rel(
                 input_rel.#base_type()
+                    // Phase 1: Transform input tuples to (key, Min_value) pairs
+                    // ========================================================
+                    // Extract key columns (all but last) and value column (last)
+                    // Convert value to u32 and wrap in Min semiring structure
                     .inner
                     .flat_map(move |(row, t, _)| {
                         let mut key = reading::row::Row::<#key_arity>::new();
@@ -417,6 +421,13 @@ pub fn codegen_min_optimize(_: TokenStream) -> TokenStream {
                         std::iter::once((key, reading::Min::new(value))).into_iter().map(move |(x, d2)| (x, t.clone(), d2))
                     })
                     .as_collection()
+                    
+                    // Phase 2: Apply MIN semiring with thresholding
+                    // ========================================================
+                    // The threshold_semigroup operator uses MIN semiring semantics:
+                    // - Combines multiple values for same key using min() operation
+                    // - Only emits updates when minimum actually decreases
+                    // - Suppresses redundant updates for non-improving values
                     .threshold_semigroup(|_k, &new_min, current_min| {
                         match current_min {
                             Some(current) if new_min < *current => Some(new_min),
@@ -425,6 +436,12 @@ pub fn codegen_min_optimize(_: TokenStream) -> TokenStream {
                             None => None,
                         }
                     })
+                    
+                    // Phase 3: Convert back to standard tuple representation
+                    // =====================================================
+                    // Extract minimum value from Min semiring difference
+                    // Reconstruct full tuple with key columns + minimum value
+                    // Convert to Present semiring for downstream operators
                     .inner
                     .flat_map(move |(key, t, min_val)| {
                         let mut result = reading::row::Row::<#arity>::new();
@@ -443,9 +460,63 @@ pub fn codegen_min_optimize(_: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         if input_rel.is_fat() {
-            // For fat relations, fall back to standard aggregation for now
-            // TODO: Implement fat relation MIN optimization if needed
-            panic!("MIN optimization for fat relations not yet implemented");
+             Rel::CollectionFat(
+                input_rel.rel_fat()
+                    // Phase 1: Transform fat tuples to (key, Min_value) pairs
+                    // =======================================================
+                    // Extract key columns (all but last) and value column (last)
+                    // Convert value to u32 and wrap in Min semiring structure
+                    .inner
+                    .flat_map(move |(row, t, _)| {
+                        let mut key = reading::row::FatRow::new();
+                        let arity = row.arity();
+                            
+                        // Extract all columns except the last as the group-by key
+                        for i in 0..arity - 1 {
+                            key.push(row.column(i));
+                        }
+                            
+                        // Extract the last column as the value to minimize
+                        let value = row.column(arity - 1) as u32;
+                        std::iter::once((key, reading::Min::new(value))).into_iter().map(move |(x, d2)| (x, t.clone(), d2))
+                    })
+                    .as_collection()
+                        
+                    // Phase 2: Apply MIN semiring with intelligent thresholding
+                    // ========================================================
+                    // Same threshold logic as fixed-arity version:
+                    // - Only emit updates when minimum actually decreases
+                    // - Suppress redundant updates for non-improving values
+                    .threshold_semigroup(|_k, &new_min, current_min| {
+                        match current_min {
+                            Some(current) if new_min < *current => Some(new_min),
+                            Some(_) => None,
+                            None if !new_min.is_zero() => Some(new_min),
+                            None => None,
+                        }
+                    })
+                        
+                    // Phase 3: Convert back to complete FatRow representation
+                    // ======================================================
+                    // Reconstruct full FatRow with key columns + minimum value
+                    // Convert to standard semiring for downstream operators
+                    .inner
+                    .flat_map(move |(key, t, min_val)| {
+                        let mut result = reading::row::FatRow::new();
+                            
+                        // Add all key columns
+                        for i in 0..key.arity() {
+                            result.push(key.column(i));
+                        }
+                            
+                        // Push minimized value as the last column
+                        result.push(min_val.value as i32);
+                            
+                        std::iter::once((result, reading::semiring_one())).into_iter().map(move |(x2, d2)| (x2, t.clone(), d2))
+                    })
+                    .as_collection(),
+                idb_catalog.arity() // Preserve original arity for fat relation wrapper
+            )
         } else {
             match idb_catalog.arity() {
                 #(#arms),*,

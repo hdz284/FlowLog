@@ -37,8 +37,7 @@ pub const SEMIRING_TYPE: &str = "Present";
 #[cfg(all(feature = "isize-type", not(feature = "present-type")))]
 pub const SEMIRING_TYPE: &str = "isize";
 
-/// Min semiring
-/// Uses u32::MAX as the additive identity (infinity)
+/// MIN Semiring
 #[derive(Copy, Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Min {
     pub value: u32,
@@ -51,6 +50,8 @@ impl Min {
     }
 
     /// Creates a new `Min` representing infinity (u32::MAX).
+    /// This serves as the additive identity in the MIN semiring:
+    /// min(a, ∞) = a for any value a.
     pub fn infinity() -> Self {
         Min { value: u32::MAX }
     }

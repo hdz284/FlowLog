@@ -65,6 +65,26 @@ pub fn non_recursive_collector<G>(
         if idb_catalog.is_aggregation() {
             let aggregation = idb_catalog.aggregation();
 
+            // MIN Semiring Optimization:
+            // =========================
+            // For MIN aggregations, we use a specialized semiring-based approach:
+            //
+            // Standard Aggregation Approach:
+            // - Groups tuples by key using reduce_core
+            // - Collects all values for each key into a vector
+            // - Computes min across the entire vector
+            //
+            // MIN Semiring Approach:
+            // - Uses differential dataflow's threshold_semigroup operator
+            // - Leverages the Min semiring where:
+            //   * Addition operation is min(a, b)
+            //   * Zero element is infinity (u32::MAX)
+            //   * Idempotent: min(a, a) = a
+            // - Incrementally maintains minimum value per key in the difference
+            //
+            // Key Benefits: Leverages DD's built-in semiring support for efficiency
+            // This optimization is only available in Present semiring.
+
             // Check if we can use the optimized MIN aggregation path
             #[cfg(not(feature = "isize-type"))]
             {
@@ -77,7 +97,8 @@ pub fn non_recursive_collector<G>(
                 }
             }
 
-            // For non-isize features, use the standard aggregation path
+            // For isize-type feature, use the standard aggregation path
+            // (Min semiring optimization requires Present-type semiring)
             #[cfg(feature = "isize-type")]
             {
                 let output_rel = Arc::new(codegen_aggregation!());
@@ -157,7 +178,7 @@ pub fn recursive_collector<G>(
                 }
             }
 
-            // For non-isize features, use the standard aggregation path
+            // For isize-type feature, use the standard aggregation path
             #[cfg(feature = "isize-type")]
             {
                 let output_rel = Arc::new(codegen_aggregation!());
