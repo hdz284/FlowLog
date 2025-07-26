@@ -233,7 +233,7 @@ dependencies = [
 [[package]]
 name = "differential-dataflow"
 version = "0.15.3"
-source = "git+https://github.com/hdz284/differential-dataflow.git?branch=master#c6eb3f19dcdee210c99ebaed90201190b76ed098"
+source = "git+https://github.com/TimelyDataflow/differential-dataflow?branch=master#80ed85653042acf5a7126f44f998d0e344e30fef"
 dependencies = [
  "columnar",
  "columnation",

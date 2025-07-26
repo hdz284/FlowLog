@@ -407,14 +407,16 @@ pub fn codegen_min_optimize(_: TokenStream) -> TokenStream {
         arms.push(quote! {
             #arity => Rel::#final_rel(
                 input_rel.#base_type()
-                    .lift(|row| {
+                    .inner
+                    .flat_map(move |(row, t, _)| {
                         let mut key = reading::row::Row::<#key_arity>::new();
                         for i in 0..#key_arity {
                             key.push(row.column(i));
                         }
                         let value = row.column(#key_arity) as u32;
-                        std::iter::once((key, reading::Min::new(value)))
+                        std::iter::once((key, reading::Min::new(value))).into_iter().map(move |(x, d2)| (x, t.clone(), d2))
                     })
+                    .as_collection()
                     .threshold_semigroup(|_k, &new_min, current_min| {
                         match current_min {
                             Some(current) if new_min < *current => Some(new_min),
@@ -423,7 +425,8 @@ pub fn codegen_min_optimize(_: TokenStream) -> TokenStream {
                             None => None,
                         }
                     })
-                    .lift_with_diff(|(key, min_val)| {
+                    .inner
+                    .flat_map(move |(key, t, min_val)| {
                         let mut result = reading::row::Row::<#arity>::new();
                         // Add key columns
                         for i in 0..#key_arity {
@@ -431,8 +434,9 @@ pub fn codegen_min_optimize(_: TokenStream) -> TokenStream {
                         }
                         // Push minimized value into the last column (extracted from diff!)
                         result.push(min_val.value as i32);
-                        std::iter::once((result, reading::semiring_one()))
+                        std::iter::once((result, reading::semiring_one())).into_iter().map(move |(x2, d2)| (x2, t.clone(), d2))
                     })
+                    .as_collection()
             )
         });
     }

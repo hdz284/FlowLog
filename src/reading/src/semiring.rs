@@ -63,7 +63,7 @@ impl Min {
 
 impl IsZero for Min {
     fn is_zero(&self) -> bool {
-        self.value == u32::MAX // infinity is the additive identity
+        false // always return false
     }
 }
 
@@ -105,7 +105,7 @@ mod tests {
         let b = Min::new(3);
         a.plus_equals(&b);
         assert_eq!(a.value, 3);
-        
+
         let mut inf = Min::infinity();
         inf.plus_equals(&Min::new(42));
         assert_eq!(inf.value, 42);
