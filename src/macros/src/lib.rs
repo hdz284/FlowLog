@@ -389,3 +389,66 @@ pub fn codegen_aggregation(_: TokenStream) -> TokenStream {
     };
     TokenStream::from(expanded)
 }
+
+/* ------------------------------------------------------------------------ */
+/* codegen for MIN aggregation optimization with Min semiring */
+/* ------------------------------------------------------------------------ */
+
+#[proc_macro]
+pub fn codegen_min_optimize(_: TokenStream) -> TokenStream {
+    let space = 1..=KV_MAX + 1; // Support up to KV_MAX + 1 arity for MIN aggregation
+    let mut arms = vec![];
+
+    for arity in space {
+        let base_type = Ident::new(&format!("rel_{}", arity), Span::call_site());
+        let final_rel = Ident::new(&format!("Collection{}", arity), Span::call_site());
+        let key_arity = arity - 1;
+
+        arms.push(quote! {
+            #arity => Rel::#final_rel(
+                input_rel.#base_type()
+                    .lift(|row| {
+                        let mut key = reading::row::Row::<#key_arity>::new();
+                        for i in 0..#key_arity {
+                            key.push(row.column(i));
+                        }
+                        let value = row.column(#key_arity) as u32;
+                        std::iter::once((key, reading::Min::new(value)))
+                    })
+                    .threshold_semigroup(|_k, &new_min, current_min| {
+                        match current_min {
+                            Some(current) if new_min < *current => Some(new_min),
+                            Some(_) => None,
+                            None if !new_min.is_zero() => Some(new_min),
+                            None => None,
+                        }
+                    })
+                    .lift_with_diff(|(key, min_val)| {
+                        let mut result = reading::row::Row::<#arity>::new();
+                        // Add key columns
+                        for i in 0..#key_arity {
+                            result.push(key.column(i));
+                        }
+                        // Push minimized value into the last column (extracted from diff!)
+                        result.push(min_val.value as i32);
+                        std::iter::once((result, reading::semiring_one()))
+                    })
+            )
+        });
+    }
+
+    let expanded = quote! {
+        if input_rel.is_fat() {
+            // For fat relations, fall back to standard aggregation for now
+            // TODO: Implement fat relation MIN optimization if needed
+            panic!("MIN optimization for fat relations not yet implemented");
+        } else {
+            match idb_catalog.arity() {
+                #(#arms),*,
+                _ => panic!("codegen_min_optimize unimplemented for arity {}", idb_catalog.arity()),
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}

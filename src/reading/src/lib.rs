@@ -5,9 +5,13 @@ pub mod reader;
 pub mod rel;
 pub mod row;
 pub mod session;
+pub mod semiring;
 
 // export configuration constants for backwards compatibility
 pub use config::{FALLBACK_ARITY, KV_MAX, PROD_MAX, ROW_MAX};
+
+// export semiring types and functions for convenience
+pub use semiring::{Semiring, semiring_one, SEMIRING_TYPE, Min};
 
 // feature propagation through dependency chain && mutually exclusive feature configuration
 // workspace
@@ -21,37 +25,3 @@ pub use config::{FALLBACK_ARITY, KV_MAX, PROD_MAX, ROW_MAX};
 
 pub type Time = ();
 pub type Iter = u16;
-
-// Conditional compilation for semiring type selection
-#[cfg(all(feature = "present-type", not(feature = "isize-type")))]
-use differential_dataflow::difference::Present;
-#[cfg(all(feature = "present-type", not(feature = "isize-type")))]
-pub type Semiring = Present;
-
-#[cfg(all(feature = "isize-type", not(feature = "present-type")))]
-pub type Semiring = isize;
-
-// Helper function to create the appropriate semiring value
-#[cfg(all(feature = "present-type", not(feature = "isize-type")))]
-pub fn semiring_one() -> Semiring {
-    Present {}
-}
-
-#[cfg(all(feature = "isize-type", not(feature = "present-type")))]
-pub fn semiring_one() -> Semiring {
-    1
-}
-
-// Compile-time check to ensure exactly one semiring feature is enabled
-#[cfg(all(feature = "present-type", feature = "isize-type"))]
-compile_error!("Cannot enable both present-type and isize-type features at once");
-
-#[cfg(not(any(feature = "present-type", feature = "isize-type")))]
-compile_error!("Must enable exactly one semiring feature: either present-type or isize-type");
-
-// debug: expose which semiring type is active
-#[cfg(all(feature = "present-type", not(feature = "isize-type")))]
-pub const SEMIRING_TYPE: &str = "Present";
-
-#[cfg(all(feature = "isize-type", not(feature = "present-type")))]
-pub const SEMIRING_TYPE: &str = "isize";

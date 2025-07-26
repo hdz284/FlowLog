@@ -1,6 +1,6 @@
 use crate::aggregation::*;
 use catalog::head::HeadIDB;
-use macros::codegen_aggregation;
+use macros::{codegen_aggregation};
 use planning::collections::CollectionSignature;
 use reading::inspect::printsize_generic;
 use reading::rel::{row_chop, Rel};
@@ -12,6 +12,18 @@ use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use timely::order::TotalOrder;
+
+// Import for MIN optimization when using isize feature
+#[cfg(feature = "isize-type")]
+use macros::codegen_min_optimize;
+#[cfg(feature = "isize-type")]
+use parsing::aggregation::AggregationOperator;
+#[cfg(feature = "isize-type")]
+use reading::row::*;
+#[cfg(feature = "isize-type")]
+use differential_dataflow::operators::ThresholdTotal;
+#[cfg(feature = "isize-type")]
+use differential_dataflow::difference::IsZero;
 
 pub fn non_recursive_collector<G>(
     last_signatures_map: &HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>,
@@ -56,8 +68,25 @@ pub fn non_recursive_collector<G>(
             .expect("couldn't find catalog metadata for idb head");
         if idb_catalog.is_aggregation() {
             let aggregation = idb_catalog.aggregation();
-            let output_rel = Arc::new(codegen_aggregation!());
-            row_map.insert(Arc::clone(head_signature), output_rel);
+            
+            // Check if we can use the optimized MIN aggregation path
+            #[cfg(feature = "isize-type")]
+            {
+                if matches!(aggregation.operator(), AggregationOperator::Min) {
+                    let output_rel = Arc::new(codegen_min_optimize!());
+                    row_map.insert(Arc::clone(head_signature), output_rel);
+                } else {
+                    let output_rel = Arc::new(codegen_aggregation!());
+                    row_map.insert(Arc::clone(head_signature), output_rel);
+                }
+            }
+            
+            // For non-isize features, use the standard aggregation path
+            #[cfg(not(feature = "isize-type"))]
+            {
+                let output_rel = Arc::new(codegen_aggregation!());
+                row_map.insert(Arc::clone(head_signature), output_rel);
+            }
         } else {
             row_map.insert(Arc::clone(head_signature), input_rel);
         }
@@ -117,8 +146,26 @@ pub fn recursive_collector<G>(
 
         if idb_catalog.is_aggregation() {
             let aggregation = idb_catalog.aggregation();
-            let output_rel = Arc::new(codegen_aggregation!());
-            variables_next_map.insert(Arc::clone(head_signature), output_rel);
+            
+            // Check if we can use the optimized MIN aggregation path
+            #[cfg(feature = "isize-type")]
+            {
+                if matches!(aggregation.operator(), AggregationOperator::Min) {
+                    let input_rel = Arc::new(input_rel);
+                    let output_rel = Arc::new(codegen_min_optimize!());
+                    variables_next_map.insert(Arc::clone(head_signature), output_rel);
+                } else {
+                    let output_rel = Arc::new(codegen_aggregation!());
+                    variables_next_map.insert(Arc::clone(head_signature), output_rel);
+                }
+            }
+            
+            // For non-isize features, use the standard aggregation path
+            #[cfg(not(feature = "isize-type"))]
+            {
+                let output_rel = Arc::new(codegen_aggregation!());
+                variables_next_map.insert(Arc::clone(head_signature), output_rel);
+            }
         } else {
             variables_next_map.insert(Arc::clone(head_signature), Arc::new(input_rel));
         }
