@@ -27,12 +27,14 @@ use reading::rel::Rel::*;
 use reading::rel::DoubleRel::*;
 use reading::reader::*; 
 use reading::inspect::*;
+use catalog::head::AggregationHeadIDB;
 
 pub fn program_execution(
     args: Args,
     strata: Strata,
     group_plans: Vec<GroupStrataQueryPlan>,
     fat_mode: bool,
+    idb_map: HashMap<String, AggregationHeadIDB>,
 ) {
     timely::execute_from_args(args.timely_args().into_iter(), move |worker| {
         let timer = ::std::time::Instant::now();
@@ -172,9 +174,10 @@ pub fn program_execution(
                     /* concat idbs of the non-recursive strata into row_map */ 
                     non_recursive_collector(
                         group_plan.last_signatures_map(), 
-                        &mut row_map
+                        &mut row_map,
+                        &idb_map,
                     );
-    
+
                     /* inspect idbs of the non-recursive strata (optional) */
                     if tracing::level_enabled!(tracing::Level::DEBUG) || is_last_group_plan {
                         inspector(
@@ -390,11 +393,12 @@ pub fn program_execution(
                         recursive_collector(
                             group_plan.last_signatures_map(), 
                             &nest_row_map,
-                            &mut variables_next_map
+                            &mut variables_next_map,
+                            &idb_map
                         );
 
                         /* inspect idbs of the recursive strata (optional) */
-                        if tracing::level_enabled!(tracing::Level::DEBUG) {
+                        if tracing::level_enabled!(tracing::Level:: DEBUG) {
                             inspector(
                                 &head_signatures_set, 
                                 &mut variables_next_map,

@@ -186,11 +186,15 @@ run_all_tests() {
 }
 
 # Main execution
-echo -e "${YELLOW}[BUILD]${NC} Building binary"
-cargo build --release >/dev/null
+echo -e "${YELLOW}[BUILD]${NC} Building and testing Present semiring (default)"
+cargo clean && cargo build --release >/dev/null
 
 setup_config_file
 setup_size_reference
+run_all_tests
+
+echo -e "${YELLOW}[BUILD]${NC} Building and testing isize-type semiring"
+cargo clean && cargo build --features isize-type --no-default-features --release >/dev/null
 run_all_tests
 
 echo -e "${GREEN}[FINISH]${NC} Correctness testing completed successfully"

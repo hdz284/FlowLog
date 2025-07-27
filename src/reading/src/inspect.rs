@@ -3,8 +3,8 @@
  * -----------------------------------------------------------------------------------------------
  */
 // use differential_dataflow::difference::Abelian;
+use differential_dataflow::collection::AsCollection;
 use differential_dataflow::difference::Semigroup;
-
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::threshold::ThresholdTotal;
 use differential_dataflow::{Collection, ExchangeData, Hashable};
@@ -14,12 +14,13 @@ use std::fs::{read_to_string, remove_file, File};
 use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use timely::dataflow::operators::Map;
 use timely::dataflow::Scope;
 use timely::order::TotalOrder;
-use tracing::{debug, error, info};
 
 use crate::rel::Rel;
 use crate::semiring_one;
+use tracing::{debug, error, info};
 
 // Thread-local storage for file handles to avoid repeatedly opening the same files
 thread_local! {
@@ -65,7 +66,13 @@ where
     };
 
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
-        .lift(|_| Some(((), 1 as i32)))
+        .inner
+        .flat_map(move |(_, t, _)| {
+            Some(((), 1 as i32))
+                .into_iter()
+                .map(move |(x, d2)| (x, t.clone(), d2))
+        })
+        .as_collection()
         .map(|_| ())
         .consolidate()
         .inspect(move |x| info!("{}: {:?}", prefix, x));
@@ -81,7 +88,13 @@ where
 {
     let name = name.to_owned();
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
-        .lift(|x| Some((x, 1 as i32)))
+        .inner
+        .flat_map(move |(x, t, _)| {
+            Some((x, 1 as i32))
+                .into_iter()
+                .map(move |(x, d2)| (x, t.clone(), d2))
+        })
+        .as_collection()
         .inspect(move |(data, time, delta)| debug!("{}: ({}, {:?}, {})", name, data, time, delta));
     // use std::fmt::Display for D (i.e. Row)
 }
@@ -99,7 +112,13 @@ where
     let name = name.to_string();
 
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
-        .lift(|_| Some(((), 1 as i32)))
+        .inner
+        .flat_map(move |(_, t, _)| {
+            Some(((), 1 as i32))
+                .into_iter()
+                .map(move |(x, d2)| (x, t.clone(), d2))
+        })
+        .as_collection()
         .map(|_| ())
         .consolidate()
         .inspect({
@@ -123,7 +142,13 @@ where
     let file_handle = get_file_handle(&path);
 
     rel.threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
-        .lift(|x| Some((x, 1 as i32)))
+        .inner
+        .flat_map(move |(x, t, _)| {
+            Some((x, 1 as i32))
+                .into_iter()
+                .map(move |(x, d2)| (x, t.clone(), d2))
+        })
+        .as_collection()
         .inspect(move |(data, _time, _delta)| {
             let mut file = file_handle.lock().unwrap();
             writeln!(file, "{}", data).expect(&format!("Can not write: {}", path));

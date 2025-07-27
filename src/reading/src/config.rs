@@ -1,5 +1,5 @@
 //! Build-time configuration constants for FlowLog
-//! 
+//!
 //! These constants control the compile-time code generation and runtime limits
 //! for various operations in the FlowLog engine.
 

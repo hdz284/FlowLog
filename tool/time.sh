@@ -289,7 +289,7 @@ main() {
 
     # Build the Rust binary
     echo "[BUILD] Building the project..."
-    cargo build --release
+    cargo clean && cargo build --release
 
     # Run all timing tests
     run_all_timing_tests

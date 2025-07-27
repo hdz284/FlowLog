@@ -1,15 +1,15 @@
-use std::fmt;
 use arrayvec::ArrayVec;
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
-use serde::{Deserialize, Serialize};
 
 /* ------------------------------------------------------------------------------------ */
 /* Array */
 /* ------------------------------------------------------------------------------------ */
 
-/// 
+///
 /// a trait to abstract ops over array implementations
 pub trait Array: Debug + Send + Sync {
     /// insert a value
@@ -48,22 +48,23 @@ impl<const N: usize> Array for Row<N> {
     }
 
     fn column(&self, id: usize) -> i32 {
-        unsafe {
-            *self.values.get_unchecked(id)
-        }
+        unsafe { *self.values.get_unchecked(id) }
     }
 }
 
 impl<const N: usize> fmt::Display for Row<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
-            f, "{}",
-            self.values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", ")
+            f,
+            "{}",
+            self.values
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     }
 }
-
-
 
 /// heap-allocated row for large arities using SmallVec as fallback
 #[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,18 +90,20 @@ impl Array for FatRow {
     }
 
     fn column(&self, id: usize) -> i32 {
-        unsafe {
-            *self.values.get_unchecked(id)
-        }
+        unsafe { *self.values.get_unchecked(id) }
     }
 }
 
 impl fmt::Display for FatRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
-            f, "{}",
-            self.values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", ")
+            f,
+            "{}",
+            self.values
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     }
 }
-
