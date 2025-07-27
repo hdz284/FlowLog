@@ -27,14 +27,14 @@ use reading::rel::Rel::*;
 use reading::rel::DoubleRel::*;
 use reading::reader::*; 
 use reading::inspect::*;
-use catalog::head::HeadIDB;
+use catalog::head::AggregationHeadIDB;
 
 pub fn program_execution(
     args: Args,
     strata: Strata,
     group_plans: Vec<GroupStrataQueryPlan>,
     fat_mode: bool,
-    idb_map: HashMap<String, HeadIDB>,
+    idb_map: HashMap<String, AggregationHeadIDB>,
 ) {
     timely::execute_from_args(args.timely_args().into_iter(), move |worker| {
         let timer = ::std::time::Instant::now();

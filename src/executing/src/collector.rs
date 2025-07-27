@@ -1,5 +1,5 @@
 use crate::aggregation::*;
-use catalog::head::HeadIDB;
+use catalog::head::AggregationHeadIDB;
 use macros::codegen_aggregation;
 use macros::codegen_min_optimize;
 use parsing::aggregation::AggregationOperator;
@@ -23,7 +23,7 @@ use timely::order::TotalOrder;
 pub fn non_recursive_collector<G>(
     last_signatures_map: &HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>,
     row_map: &mut HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>,
-    idb_catalogs: &HashMap<String, HeadIDB>,
+    idb_catalogs: &HashMap<String, AggregationHeadIDB>,
 ) where
     G: timely::dataflow::scopes::Scope,
     G::Timestamp: Lattice + TotalOrder,
@@ -59,10 +59,9 @@ pub fn non_recursive_collector<G>(
             }
         };
 
-        let idb_catalog = idb_catalogs
-            .get(head_signature.name())
-            .expect("couldn't find catalog metadata for idb head");
-        if idb_catalog.is_aggregation() {
+        // Check if this is an aggregation rule by looking it up in the aggregation catalog
+        if let Some(idb_catalog) = idb_catalogs.get(head_signature.name()) {
+            // This is an aggregation rule - use aggregation macros
             let aggregation = idb_catalog.aggregation();
 
             // MIN Semiring Optimization:
@@ -105,6 +104,7 @@ pub fn non_recursive_collector<G>(
                 row_map.insert(Arc::clone(head_signature), output_rel);
             }
         } else {
+            // This is a normal (non-aggregation) rule - use standard handling
             row_map.insert(Arc::clone(head_signature), input_rel);
         }
     }
@@ -114,7 +114,7 @@ pub fn recursive_collector<G>(
     last_signatures_map: &HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>,
     nest_row_map: &HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>,
     variables_next_map: &mut HashMap<Arc<CollectionSignature>, Arc<Rel<G>>>,
-    idb_catalogs: &HashMap<String, HeadIDB>,
+    idb_catalogs: &HashMap<String, AggregationHeadIDB>,
 ) where
     G: timely::dataflow::scopes::Scope,
     G::Timestamp: Lattice + TotalOrder,
@@ -158,11 +158,9 @@ pub fn recursive_collector<G>(
             }
         };
 
-        let idb_catalog = idb_catalogs
-            .get(head_signature.name())
-            .expect("couldn't find catalog metadata for idb head");
-
-        if idb_catalog.is_aggregation() {
+        // Check if this is an aggregation rule by looking it up in the aggregation catalog
+        if let Some(idb_catalog) = idb_catalogs.get(head_signature.name()) {
+            // This is an aggregation rule - use aggregation macros
             let aggregation = idb_catalog.aggregation();
 
             // Check if we can use the optimized MIN aggregation path
@@ -185,6 +183,7 @@ pub fn recursive_collector<G>(
                 variables_next_map.insert(Arc::clone(head_signature), output_rel);
             }
         } else {
+            // This is a normal (non-aggregation) rule - use standard handling
             variables_next_map.insert(Arc::clone(head_signature), Arc::new(input_rel));
         }
     }

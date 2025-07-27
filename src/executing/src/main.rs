@@ -1,4 +1,4 @@
-use catalog::head::idb_catalog_from_program;
+use catalog::head::aggregation_catalog_from_program;
 use clap::Parser as ClapParser;
 
 use debugging::debugger;
@@ -79,7 +79,7 @@ fn main() {
         );
     }
 
-    let idb_map = idb_catalog_from_program(&program);
+    let idb_map = aggregation_catalog_from_program(&program);
 
     /* (4) executing (dataflow) */
     program_execution(
