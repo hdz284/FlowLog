@@ -1,7 +1,7 @@
 use paste::paste;
 use std::sync::Arc;
 
-use timely::dataflow::operators::Concatenate;
+use timely::dataflow::operators::{Concatenate, Map};
 use timely::dataflow::scopes::Child;
 use timely::dataflow::Scope;
 use timely::dataflow::ScopeParent;
@@ -205,8 +205,12 @@ macro_rules! impl_rels {
                     if self.is_fat() {
                         Rel::CollectionFat(
                             self.rel_fat()
-                                .lift(|x| Some((x, 1 as i32)))
-                                .concat(&other.rel_fat().lift(|x| Some((x, -1 as i32))))
+                                .inner
+                                .flat_map(move |(x, t, _)| Some((x, 1 as i32)).into_iter().map(move |(x, d2)| (x, t.clone(), d2)))
+                                .as_collection()
+                                .concat(&other.rel_fat().inner
+                                    .flat_map(move |(x, t, _)| Some((x, -1 as i32)).into_iter().map(move |(x, d2)| (x, t.clone(), d2)))
+                                    .as_collection())
                                 .threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one())),
                             self.arity()
                         )
@@ -215,8 +219,12 @@ macro_rules! impl_rels {
                             $(
                                 $arity => Rel::[<Collection $arity>](
                                     self.[<rel_ $arity>]()
-                                        .lift(|x| Some((x, 1 as i32)))
-                                        .concat(&other.[<rel_ $arity>]().lift(|x| Some((x, -1 as i32))))
+                                        .inner
+                                        .flat_map(move |(x, t, _)| Some((x, 1 as i32)).into_iter().map(move |(x, d2)| (x, t.clone(), d2)))
+                                        .as_collection()
+                                        .concat(&other.[<rel_ $arity>]().inner
+                                            .flat_map(move |(x, t, _)| Some((x, -1 as i32)).into_iter().map(move |(x, d2)| (x, t.clone(), d2)))
+                                            .as_collection())
                                         .threshold_semigroup(move |_, _, old| old.is_none().then_some(semiring_one()))
                                 ),
                             )*

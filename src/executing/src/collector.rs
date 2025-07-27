@@ -1,16 +1,23 @@
 use crate::aggregation::*;
 use catalog::head::HeadIDB;
 use macros::codegen_aggregation;
+use macros::codegen_min_optimize;
+use parsing::aggregation::AggregationOperator;
 use planning::collections::CollectionSignature;
 use reading::inspect::printsize_generic;
 use reading::rel::{row_chop, Rel};
+use reading::row::*;
 
+use differential_dataflow::difference::IsZero;
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::reduce::ReduceCore;
+use differential_dataflow::operators::ThresholdTotal;
 use differential_dataflow::trace::implementations::{ValBuilder, ValSpine};
+use differential_dataflow::AsCollection;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use timely::dataflow::operators::Map;
 use timely::order::TotalOrder;
 
 pub fn non_recursive_collector<G>(
@@ -30,18 +37,19 @@ pub fn non_recursive_collector<G>(
             .and_then(|signature| row_map.get(signature))
             .expect("Init relation missing");
 
-        let concat_rels = last_signatures
-            .iter()
-            .skip(1)
-            .map(|signature| { 
-                Arc::clone(row_map.get(signature).expect("last signature missing when concatenate"))
-            });
+        let concat_rels = last_signatures.iter().skip(1).map(|signature| {
+            Arc::clone(
+                row_map
+                    .get(signature)
+                    .expect("last signature missing when concatenate"),
+            )
+        });
 
         let input_rel = match row_map.get(head_signature) {
             Some(head_rel) => {
                 let full = std::iter::once(Arc::clone(init_rel)).chain(concat_rels);
                 Arc::new(head_rel.concatenate(full))
-            },
+            }
             None => {
                 if last_signatures.len() == 1 {
                     Arc::clone(init_rel)
@@ -56,8 +64,46 @@ pub fn non_recursive_collector<G>(
             .expect("couldn't find catalog metadata for idb head");
         if idb_catalog.is_aggregation() {
             let aggregation = idb_catalog.aggregation();
-            let output_rel = Arc::new(codegen_aggregation!());
-            row_map.insert(Arc::clone(head_signature), output_rel);
+
+            // MIN Semiring Optimization:
+            // =========================
+            // For MIN aggregations, we use a specialized semiring-based approach:
+            //
+            // Standard Aggregation Approach:
+            // - Groups tuples by key using reduce_core
+            // - Collects all values for each key into a vector
+            // - Computes min across the entire vector
+            //
+            // MIN Semiring Approach:
+            // - Uses differential dataflow's threshold_semigroup operator
+            // - Leverages the Min semiring where:
+            //   * Addition operation is min(a, b)
+            //   * Zero element is infinity (u32::MAX)
+            //   * Idempotent: min(a, a) = a
+            // - Incrementally maintains minimum value per key in the difference
+            //
+            // Key Benefits: Leverages DD's built-in semiring support for efficiency
+            // This optimization is only available in Present semiring.
+
+            // Check if we can use the optimized MIN aggregation path
+            #[cfg(not(feature = "isize-type"))]
+            {
+                if matches!(aggregation.operator(), AggregationOperator::Min) {
+                    let output_rel = Arc::new(codegen_min_optimize!());
+                    row_map.insert(Arc::clone(head_signature), output_rel);
+                } else {
+                    let output_rel = Arc::new(codegen_aggregation!());
+                    row_map.insert(Arc::clone(head_signature), output_rel);
+                }
+            }
+
+            // For isize-type feature, use the standard aggregation path
+            // (Min semiring optimization requires Present-type semiring)
+            #[cfg(feature = "isize-type")]
+            {
+                let output_rel = Arc::new(codegen_aggregation!());
+                row_map.insert(Arc::clone(head_signature), output_rel);
+            }
         } else {
             row_map.insert(Arc::clone(head_signature), input_rel);
         }
@@ -90,18 +136,19 @@ pub fn recursive_collector<G>(
             .and_then(|signature| nest_row_map.get(signature))
             .expect("init relation missing");
 
-        let concat_rels = last_signatures
-            .iter()
-            .skip(1)
-            .map(|signature| { 
-                Arc::clone(nest_row_map.get(signature).expect("last signature missing when concatenate"))
-            });
+        let concat_rels = last_signatures.iter().skip(1).map(|signature| {
+            Arc::clone(
+                nest_row_map
+                    .get(signature)
+                    .expect("last signature missing when concatenate"),
+            )
+        });
 
         let input_rel = match variables_next_map.get(head_signature) {
             Some(head_rel) => {
                 let full = std::iter::once(Arc::clone(init_rel)).chain(concat_rels);
                 head_rel.concatenate(full).threshold()
-            },
+            }
             None => {
                 if last_signatures.len() == 1 {
                     init_rel.threshold()
@@ -117,8 +164,26 @@ pub fn recursive_collector<G>(
 
         if idb_catalog.is_aggregation() {
             let aggregation = idb_catalog.aggregation();
-            let output_rel = Arc::new(codegen_aggregation!());
-            variables_next_map.insert(Arc::clone(head_signature), output_rel);
+
+            // Check if we can use the optimized MIN aggregation path
+            #[cfg(not(feature = "isize-type"))]
+            {
+                if matches!(aggregation.operator(), AggregationOperator::Min) {
+                    let input_rel = Arc::new(input_rel);
+                    let output_rel = Arc::new(codegen_min_optimize!());
+                    variables_next_map.insert(Arc::clone(head_signature), output_rel);
+                } else {
+                    let output_rel = Arc::new(codegen_aggregation!());
+                    variables_next_map.insert(Arc::clone(head_signature), output_rel);
+                }
+            }
+
+            // For isize-type feature, use the standard aggregation path
+            #[cfg(feature = "isize-type")]
+            {
+                let output_rel = Arc::new(codegen_aggregation!());
+                variables_next_map.insert(Arc::clone(head_signature), output_rel);
+            }
         } else {
             variables_next_map.insert(Arc::clone(head_signature), Arc::new(input_rel));
         }
