@@ -109,6 +109,10 @@ pub struct Arithmetic {
 }
 
 impl Arithmetic {
+    pub fn new(init: Factor, rest: Vec<(ArithmeticOperator, Factor)>) -> Self {
+        Self { init, rest }
+    }
+
     pub fn init(&self) -> &Factor {
         &self.init
     }
@@ -132,6 +136,24 @@ impl Arithmetic {
     // if it is a simple variable
     pub fn is_var(&self) -> bool {
         self.init.is_var() && self.rest.is_empty()
+    }
+
+    /// Returns a list of variable names in order of appearance (duplicates preserved).
+    /// Ignores constants.
+    pub fn variables_list_in_order(&self) -> Vec<String> {
+        let mut vars = Vec::new();
+
+        if let Factor::Var(v) = &self.init {
+            vars.push(v.clone());
+        }
+
+        for (_, factor) in &self.rest {
+            if let Factor::Var(v) = factor {
+                vars.push(v.clone());
+            }
+        }
+
+        vars
     }
 }
 

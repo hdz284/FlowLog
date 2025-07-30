@@ -1,7 +1,10 @@
-use std::fmt;
-use std::{collections::{BinaryHeap, HashMap, HashSet}, vec};
-use std::cmp::Reverse;
 use catalog::rule::Catalog;
+use std::cmp::Reverse;
+use std::fmt;
+use std::{
+    collections::{BinaryHeap, HashMap, HashSet},
+    vec,
+};
 use tracing::debug;
 
 // assuming no cross products for the joins
@@ -9,7 +12,7 @@ use tracing::debug;
 #[derive(Debug, Clone)]
 pub struct PlanTree {
     root: usize,
-    tree: HashMap<usize, Vec<usize>>,   // for each parent, return a vector of its children
+    tree: HashMap<usize, Vec<usize>>, // for each parent, return a vector of its children
     overlap: usize,
     max_overlap: usize,
     sub_trees: HashMap<usize, Vec<usize>>, // for each subroot, return a vector of the sub_tree in pre-order traversal order
@@ -51,29 +54,29 @@ impl PlanTree {
     fn populate_subtree(
         subroot: usize,
         tree: &HashMap<usize, Vec<usize>>,
-        sub_trees: &mut HashMap<usize, Vec<usize>>
+        sub_trees: &mut HashMap<usize, Vec<usize>>,
     ) -> Vec<usize> {
         if let Some(subtree) = sub_trees.get(&subroot) {
             // return the already established subtree
             return subtree.clone();
         }
-    
+
         let mut sub_tree = vec![subroot];
-    
+
         // recurse and merge the subtrees of the children
         if let Some(children) = tree.get(&subroot) {
             for &child in children {
                 let child_subtree = Self::populate_subtree(child, tree, sub_trees);
-                sub_tree.extend(child_subtree); 
+                sub_tree.extend(child_subtree);
             }
         }
 
         sub_trees.insert(subroot, sub_tree.clone()); // cache the result in sub_trees
-        
+
         sub_tree
     }
 
-    pub fn from_catalog(catalog: &Catalog, is_optimized: bool) -> Self { 
+    pub fn from_catalog(catalog: &Catalog, is_optimized: bool) -> Self {
         let atom_variable_sets = catalog
             .atom_argument_signatures()
             .iter()
@@ -100,7 +103,7 @@ impl PlanTree {
 
         // return an optimized tree (using tree width)
         let head_variable_set = catalog
-            .head_arguments_strs()
+            .head_variables_list()
             .iter()
             .cloned()
             .collect::<HashSet<_>>();
@@ -117,7 +120,7 @@ impl PlanTree {
         if core_atoms.is_empty() {
             panic!("No core atoms for the rule {}", catalog.rule());
         }
-        
+
         let mut root = *core_atoms.last().unwrap();
         let mut tree: HashMap<usize, Vec<usize>> = HashMap::new();
         let mut overlap = 0;
@@ -128,7 +131,7 @@ impl PlanTree {
             tree.insert(parent, vec![child]);
             overlap += lambda_overlap(parent, child);
         }
-    
+
         // the leaf in the chain -> []
         if let Some(&first) = core_atoms.first() {
             tree.insert(first, vec![]);
@@ -145,14 +148,18 @@ impl PlanTree {
         let mut depth = Self::populate_tree_depth(root, &tree);
 
         if is_optimized {
-            // iterate over each core atoms as roots                
+            // iterate over each core atoms as roots
             for candidate_root in 0..atom_variable_sets.len() {
                 if !catalog.is_core_atom_bitmap()[candidate_root] {
                     continue; // skip non-core atoms
                 }
 
                 // Prim's algorithm with the candidate_root (for the maximum spanning tree)
-                let mut visited = catalog.is_core_atom_bitmap().iter().map(|&is_core| !is_core).collect::<Vec<bool>>();
+                let mut visited = catalog
+                    .is_core_atom_bitmap()
+                    .iter()
+                    .map(|&is_core| !is_core)
+                    .collect::<Vec<bool>>();
 
                 // a map to trace nodes in the tree for easy access
                 let mut candidate_tree: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -161,14 +168,16 @@ impl PlanTree {
                 let mut max_heap = BinaryHeap::new();
 
                 // root at depth 0, child of root will be depth - 1, and so on (so that the spanning tree can be bushy)
-                max_heap.push((0, Reverse(0), usize::MAX, candidate_root)); 
-                
+                max_heap.push((0, Reverse(0), usize::MAX, candidate_root));
+
                 let mut candidate_overlap = 0;
 
-                while let Some((prev_overlap, Reverse(child_depth), parent_id, child_id)) = max_heap.pop() {
+                while let Some((prev_overlap, Reverse(child_depth), parent_id, child_id)) =
+                    max_heap.pop()
+                {
                     if visited[child_id] {
                         // skip visited nodes (and non-core atoms)
-                        continue; 
+                        continue;
                     }
 
                     visited[child_id] = true;
@@ -189,10 +198,15 @@ impl PlanTree {
                         if !visited[neighbor_id] {
                             let next_overlap = lambda_overlap(child_id, neighbor_id);
                             if next_overlap > 0 {
-                                max_heap.push((next_overlap, Reverse(child_depth + 1), child_id, neighbor_id)); // neighbor_depth = child_depth - 1
+                                max_heap.push((
+                                    next_overlap,
+                                    Reverse(child_depth + 1),
+                                    child_id,
+                                    neighbor_id,
+                                )); // neighbor_depth = child_depth - 1
                             } else {
                                 // no overlap between the root and the neighbor
-                                max_heap.push((0, Reverse(1), candidate_root, neighbor_id)); 
+                                max_heap.push((0, Reverse(1), candidate_root, neighbor_id));
                             }
                         }
                     }
@@ -213,10 +227,16 @@ impl PlanTree {
                         &head_variable_set,
                     );
 
-                    let candidate_depth = Self::populate_tree_depth(candidate_root, &candidate_tree);
+                    let candidate_depth =
+                        Self::populate_tree_depth(candidate_root, &candidate_tree);
 
-                    if candidate_width < width || (candidate_width == width && candidate_depth < depth) {
-                        debug!("newly optimized tree found w/ width {} and depth {}", candidate_width, candidate_depth);
+                    if candidate_width < width
+                        || (candidate_width == width && candidate_depth < depth)
+                    {
+                        debug!(
+                            "newly optimized tree found w/ width {} and depth {}",
+                            candidate_width, candidate_depth
+                        );
                         tree = candidate_tree;
                         width = candidate_width;
                         depth = candidate_depth;
@@ -224,7 +244,7 @@ impl PlanTree {
                         root = candidate_root;
                     }
                 }
-            };
+            }
         }
 
         // populate the sub_trees HashMap for core atoms only
@@ -236,22 +256,28 @@ impl PlanTree {
         }
 
         // max_overlap = sum of arities - number of distinct variables
-        let num_distinct_variables = atom_variable_sets.iter().flatten().collect::<HashSet<_>>().len();
+        let num_distinct_variables = atom_variable_sets
+            .iter()
+            .flatten()
+            .collect::<HashSet<_>>()
+            .len();
 
         Self {
             root,
             tree,
             overlap,
-            max_overlap: atom_variable_sets.iter().map(|set| set.len()).sum::<usize>() - num_distinct_variables,
+            max_overlap: atom_variable_sets
+                .iter()
+                .map(|set| set.len())
+                .sum::<usize>()
+                - num_distinct_variables,
             sub_trees,
             tree_width: width,
         }
     }
 
     /// enumerate equivalent permutations of the tree
-    fn tree_permutations(
-        tree: &HashMap<usize, Vec<usize>>,
-    ) -> Vec<HashMap<usize, Vec<usize>>> {
+    fn tree_permutations(tree: &HashMap<usize, Vec<usize>>) -> Vec<HashMap<usize, Vec<usize>>> {
         use itertools::Itertools;
         let mut tree_permutations = vec![tree.clone()];
 
@@ -271,31 +297,33 @@ impl PlanTree {
     }
 
     /// find the tree depth of the tree
-    fn populate_tree_depth(
-        root: usize,
-        tree: &HashMap<usize, Vec<usize>>,
-    ) -> usize {
+    fn populate_tree_depth(root: usize, tree: &HashMap<usize, Vec<usize>>) -> usize {
         // define lambda for tree depth rooted at the parent
         fn subtree_depth(
-            parent: usize,      // subtree root
-            tree: &HashMap<usize, Vec<usize>>,  // ground truth
+            parent: usize,                     // subtree root
+            tree: &HashMap<usize, Vec<usize>>, // ground truth
         ) -> usize {
             let children = tree.get(&parent).unwrap();
-            if children.is_empty() {  return 0; } // base case (leaf)
-            1 + children.iter().map(|&child| subtree_depth(child, tree)).max().unwrap()
+            if children.is_empty() {
+                return 0;
+            } // base case (leaf)
+            1 + children
+                .iter()
+                .map(|&child| subtree_depth(child, tree))
+                .max()
+                .unwrap()
         }
 
         // find the tree depth of the tree
         subtree_depth(root, tree)
     }
 
-
     /// find the tree width of the tree
     fn populate_tree_width(
         catalog: &Catalog,
         root: usize,
         tree: &HashMap<usize, Vec<usize>>,
-        atom_variable_sets: &Vec<HashSet<String>>, 
+        atom_variable_sets: &Vec<HashSet<String>>,
         head_variables: &HashSet<String>,
     ) -> usize {
         // populate the sub_trees for core atoms only
@@ -309,60 +337,79 @@ impl PlanTree {
         // define lambda for tree width rooted at the parent
         fn subtree_width(
             catalog: &Catalog,
-            parent: usize,      // subtree root
-            tree: &HashMap<usize, Vec<usize>>,  // ground truth
+            parent: usize,                          // subtree root
+            tree: &HashMap<usize, Vec<usize>>,      // ground truth
             sub_trees: &HashMap<usize, Vec<usize>>, // ground truth for the tree
             head_variables: &HashSet<String>,
             _head_arity: usize,
         ) -> usize {
             let children = tree.get(&parent).unwrap();
-            if children.is_empty() {  return 0; } // base case (leaf) instead of head_arity
+            if children.is_empty() {
+                return 0;
+            } // base case (leaf) instead of head_arity
 
             let planning_child = children.last().unwrap().clone();
             let planning_subtree = sub_trees.get(&planning_child).unwrap().clone();
-            let leftover_subtrees = 
-                std::iter::once(parent)
-                    .chain(
-                        children[..children.len() - 1]
-                            .iter()
-                            .flat_map(|&child| sub_trees.get(&child).unwrap().clone())
-                    )
-                    .collect::<Vec<usize>>();
+            let leftover_subtrees = std::iter::once(parent)
+                .chain(
+                    children[..children.len() - 1]
+                        .iter()
+                        .flat_map(|&child| sub_trees.get(&child).unwrap().clone()),
+                )
+                .collect::<Vec<usize>>();
 
             /* variables arguments for the both sides */
-            let planning_vars_set = catalog.vars_set(&planning_subtree).into_iter().cloned().collect::<HashSet<_>>();
-            let leftover_vars_set = catalog.vars_set(&leftover_subtrees).into_iter().cloned().collect::<HashSet<_>>();
-            
+            let planning_vars_set = catalog
+                .vars_set(&planning_subtree)
+                .into_iter()
+                .cloned()
+                .collect::<HashSet<_>>();
+            let leftover_vars_set = catalog
+                .vars_set(&leftover_subtrees)
+                .into_iter()
+                .cloned()
+                .collect::<HashSet<_>>();
+
             // planning_vars_set intersects (leftover_variables union head_variables)
-            let planning_head_variables = 
-                planning_vars_set
-                    .intersection(
-                        &leftover_vars_set.union(head_variables).cloned().collect()
-                    )
-                    .cloned()
-                    .collect::<HashSet<String>>();
-            
+            let planning_head_variables = planning_vars_set
+                .intersection(&leftover_vars_set.union(head_variables).cloned().collect())
+                .cloned()
+                .collect::<HashSet<String>>();
+
             // leftover_vars_set intersects (planning_variables union head_variables)
-            let leftover_head_variables = 
-                leftover_vars_set
-                    .intersection(
-                        &planning_vars_set.union(head_variables).cloned().collect()
-                    )
-                    .cloned()
-                    .collect::<HashSet<String>>();
+            let leftover_head_variables = leftover_vars_set
+                .intersection(&planning_vars_set.union(head_variables).cloned().collect())
+                .cloned()
+                .collect::<HashSet<String>>();
 
-            // truncate the planning child from the tree 
+            // truncate the planning child from the tree
             let mut truncated_tree = tree.clone();
-            truncated_tree.get_mut(&parent).unwrap().pop(); 
+            truncated_tree.get_mut(&parent).unwrap().pop();
 
-            let planning_width = subtree_width(catalog, planning_child, &truncated_tree, sub_trees, &planning_head_variables, planning_head_variables.len());
-            let leftover_width = subtree_width(catalog, parent, &truncated_tree, sub_trees, &leftover_head_variables, leftover_head_variables.len());
+            let planning_width = subtree_width(
+                catalog,
+                planning_child,
+                &truncated_tree,
+                sub_trees,
+                &planning_head_variables,
+                planning_head_variables.len(),
+            );
+            let leftover_width = subtree_width(
+                catalog,
+                parent,
+                &truncated_tree,
+                sub_trees,
+                &leftover_head_variables,
+                leftover_head_variables.len(),
+            );
 
             std::cmp::max(
                 std::cmp::max(planning_width, leftover_width),
                 // head_arity // max intermediate arity
                 // (alternative: max intermediate jn arity) planning_head_variables.union(&leftover_head_variables).count()
-                planning_head_variables.union(&leftover_head_variables).count()
+                planning_head_variables
+                    .union(&leftover_head_variables)
+                    .count(),
             )
         }
 
@@ -389,14 +436,10 @@ impl fmt::Display for PlanTree {
                 if is_last { "└── " } else { "├── " },
                 current_node
             )?;
-            
+
             // determine the new prefix for child nodes
-            let new_prefix = format!(
-                "{}{}",
-                prefix,
-                if is_last { "    " } else { "│   " }
-            );
-            
+            let new_prefix = format!("{}{}", prefix, if is_last { "    " } else { "│   " });
+
             // retrieve and iterate over child nodes
             if let Some(children) = tree.get(&current_node) {
                 let len = children.len();

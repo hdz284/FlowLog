@@ -1,7 +1,9 @@
 use std::collections::{HashMap, HashSet};
+use crate::arithmetic::ArithmeticPos;
 use parsing::compare::ComparisonExpr;
 use parsing::rule::{Atom, AtomArg, Const, FLRule, Predicate};
 use parsing::head::{Head, HeadArg};
+use parsing::arithmetic::{Factor, Arithmetic};
 use crate::atoms::{AtomSignature, AtomArgumentSignature};
 use crate::filters::BaseFilters;
 use tracing::debug;
@@ -14,6 +16,10 @@ pub struct Catalog {
     signature_to_argument_str_map: HashMap<AtomArgumentSignature, String>,                // map each (core, negative or subatom) signature to the argument_str (reverse map)
     argument_presence_map: HashMap<String, Vec<Option<AtomArgumentSignature>>>,           // map each argument_str to the first presence of the argument in every core atom (None if absent)
     
+    head_arithmetic_arguments: Vec<ArithmeticPos>,
+
+    head_variables_list: Vec<String>,
+
     atom_names: Vec<String>,                                                              // list of rhs atom names               
     atom_argument_signatures: Vec<Vec<AtomArgumentSignature>>,                            // for each rhs positive atom, a vector of argument signatures
     is_core_atom_bitmap: Vec<bool>,                                                       // bitmap of core atoms
@@ -126,15 +132,8 @@ impl Catalog {
         self.rule.head().name()
     }
 
-    pub fn head_arguments(&self) -> &Vec<HeadArg> {
-        self.rule.head().head_arguments()
-    }
-
-    pub fn head_arguments_strs(&self) -> Vec<String> {
-        self.head_arguments()
-            .iter()
-            .flat_map(|head_arg| head_arg.vars().into_iter().cloned())
-            .collect()
+    pub fn head_variables_list(&self) -> Vec<String> {
+        self.head_variables_list.clone()
     }
 
     pub fn is_const_or_var_eq_or_placeholder(&self, signature: &AtomArgumentSignature) -> bool {
@@ -317,9 +316,14 @@ impl Catalog {
             })
             .collect();
 
+        let (head_variables_list, head_arithmetic_arguments) =
+            Self::populate_head_arguments(rule.head().head_arguments(), &argument_presence_map);
+
         Self { rule: rule.clone(),
                signature_to_argument_str_map,
                argument_presence_map,
+               head_arithmetic_arguments,
+               head_variables_list,
                atom_names,
                atom_argument_signatures,
                is_core_atom_bitmap,
@@ -830,6 +834,50 @@ impl Catalog {
             }
         }
         result
+    }
+
+    pub fn populate_head_arguments(
+        head_args: &[HeadArg],
+        argument_presence_map: &HashMap<String, Vec<Option<AtomArgumentSignature>>>,
+    ) -> (Vec<String>, Vec<ArithmeticPos>) {
+        let mut head_vars_set = HashSet::new();
+        let mut head_vars_list = Vec::new();
+        let mut head_exprs = Vec::new();
+
+        for head_arg in head_args {
+            let arithmetic = match head_arg {
+                // TODO: optimization, var should be subset of arithmetic
+                HeadArg::Var(v) => Arithmetic::new(Factor::Var(v.clone()), vec![]),
+                HeadArg::Arith(a) => a.clone(),
+                HeadArg::Aggregation(a) => a.arithmetic().clone(),
+            };
+
+            // Collect variables in order (with duplicates)
+            let var_names = arithmetic.variables_list_in_order();
+
+            // Lookup argument signatures for each variable
+            let var_signatures: Vec<AtomArgumentSignature> = var_names
+            .iter()
+            .map(|v| {
+                if head_vars_set.insert(v.clone()) {
+                    head_vars_list.push(v.clone());
+                }
+
+                argument_presence_map
+                    .get(v.as_str())
+                    .and_then(|vec| vec.iter().find_map(|x| *x))
+                    .unwrap_or_else(|| {
+                        panic!("populate_head_arguments: variable '{}' not found in argument_presence_map", v)
+                    })
+            })
+            .collect();
+
+            // Build arithmetic position
+            let arith_pos = ArithmeticPos::from_arithmetic(&arithmetic, &var_signatures);
+            head_exprs.push(arith_pos);
+        }
+
+        (head_vars_list, head_exprs)
     }
 }
 
