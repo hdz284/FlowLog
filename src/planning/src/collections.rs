@@ -1,34 +1,30 @@
-use::std::fmt;
-use std::sync::Arc;
-use std::collections::HashMap;
-use catalog::rule::Catalog;
+use ::std::fmt;
 use catalog::atoms::AtomArgumentSignature;
+use catalog::rule::Catalog;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 /*
     serialization identifies the collection and keep tracks of the lineage of the intermedidate transformation
 */
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum CollectionSignature {
-    Atom {  
-        name: String,  
-    },
+    Atom { name: String },
 
-    UnaryTransformationOutput { 
-        name: String, 
-    },
+    UnaryTransformationOutput { name: String },
 
-    JnOutput { 
-        name: String, 
-    },
+    JnOutput { name: String },
 
-    NegJnOutput { 
-        name: String, 
-    },
+    NegJnOutput { name: String },
+
+    Head { name: String },
 }
 
 impl CollectionSignature {
     pub fn new_atom(name: &str) -> Self {
-        Self::Atom { name: name.to_string() }
+        Self::Atom {
+            name: name.to_string(),
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -37,6 +33,7 @@ impl CollectionSignature {
             Self::UnaryTransformationOutput { name } => name,
             Self::JnOutput { name } => name,
             Self::NegJnOutput { name } => name,
+            Self::Head { name } => name,
         }
     }
 
@@ -73,7 +70,6 @@ impl fmt::Display for CollectionSignature {
     }
 }
 
-
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Collection {
     signature: Arc<CollectionSignature>,
@@ -83,7 +79,11 @@ pub struct Collection {
 
 /* constructors */
 impl Collection {
-    pub fn new(signature: CollectionSignature, key_argument_signatures: &Vec<AtomArgumentSignature>, value_argument_signatures: &Vec<AtomArgumentSignature>) -> Self {
+    pub fn new(
+        signature: CollectionSignature,
+        key_argument_signatures: &Vec<AtomArgumentSignature>,
+        value_argument_signatures: &Vec<AtomArgumentSignature>,
+    ) -> Self {
         Self {
             signature: Arc::new(signature),
             key_argument_signatures: key_argument_signatures.clone(),
@@ -92,7 +92,10 @@ impl Collection {
     }
 
     pub fn arity(&self) -> (usize, usize) {
-        (self.key_argument_signatures.len(), self.value_argument_signatures.len())
+        (
+            self.key_argument_signatures.len(),
+            self.value_argument_signatures.len(),
+        )
     }
 
     pub fn is_kv(&self) -> bool {
@@ -107,8 +110,13 @@ impl Collection {
         &self.signature
     }
 
-    pub fn kv_argument_signatures(&self) -> (&Vec<AtomArgumentSignature>, &Vec<AtomArgumentSignature>) {
-        (&self.key_argument_signatures, &self.value_argument_signatures)
+    pub fn kv_argument_signatures(
+        &self,
+    ) -> (&Vec<AtomArgumentSignature>, &Vec<AtomArgumentSignature>) {
+        (
+            &self.key_argument_signatures,
+            &self.value_argument_signatures,
+        )
     }
 
     pub fn key_argument_signatures(&self) -> &Vec<AtomArgumentSignature> {
@@ -121,42 +129,51 @@ impl Collection {
 
     pub fn pprint(&self) -> String {
         if self.is_kv() {
-            format!("{}({}: {})", self.signature.name(), 
-                                  self.key_argument_signatures
-                                    .iter()
-                                    .map(|argument_signature| argument_signature.to_string())
-                                    .collect::<Vec<String>>()
-                                    .join(", "),
-                                  self.value_argument_signatures
-                                    .iter()
-                                    .map(|argument_signature| argument_signature.to_string())
-                                    .collect::<Vec<String>>()
-                                    .join(", ")
-                        )
+            format!(
+                "{}({}: {})",
+                self.signature.name(),
+                self.key_argument_signatures
+                    .iter()
+                    .map(|argument_signature| argument_signature.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                self.value_argument_signatures
+                    .iter()
+                    .map(|argument_signature| argument_signature.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
         } else {
             /* row tuples */
-            format!("{}({})", self.signature.name(), 
-                                  self.value_argument_signatures
-                                    .iter()
-                                    .map(|argument_signature| argument_signature.to_string())
-                                    .collect::<Vec<String>>()
-                                    .join(", ")
-                        )
+            format!(
+                "{}({})",
+                self.signature.name(),
+                self.value_argument_signatures
+                    .iter()
+                    .map(|argument_signature| argument_signature.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
         }
-    }   
+    }
 
-
-    pub fn populate_argument_presence_map(&self, catalog: &Catalog) -> HashMap<String, AtomArgumentSignature> {
+    pub fn populate_argument_presence_map(
+        &self,
+        catalog: &Catalog,
+    ) -> HashMap<String, AtomArgumentSignature> {
         let mut argument_presence_map = HashMap::new();
-        for argument_signature in self.key_argument_signatures.iter().chain(self.value_argument_signatures.iter()) {
+        for argument_signature in self
+            .key_argument_signatures
+            .iter()
+            .chain(self.value_argument_signatures.iter())
+        {
             let argument_str = &catalog.signature_to_argument_str_map()[argument_signature];
             /* only populate the entry if the argument is not already present */
             /* in other words, only the first occurrence of the argument is recorded */
-            argument_presence_map.entry(argument_str.to_string()).or_insert_with(|| argument_signature.clone());
+            argument_presence_map
+                .entry(argument_str.to_string())
+                .or_insert_with(|| argument_signature.clone());
         }
         argument_presence_map
     }
 }
-
-
-

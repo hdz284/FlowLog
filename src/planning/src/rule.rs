@@ -18,6 +18,7 @@ pub struct RuleQueryPlan {
     dependent_atom_names: HashSet<String>,
     plan: PlanTree,                      // join spanning tree
     last_transformation: Transformation, // root of the binary transformation tree
+    head_transformation: Transformation, // Head arithmetic transformation
     transformation_tree: HashMap<Transformation, (Transformation, Transformation)>, // binary transformation tree
 }
 
@@ -77,12 +78,23 @@ impl RuleQueryPlan {
         assert!(is_active_non_core_atom_bitmap.iter().all(|&x| !x));
 
         // post mapping to get actual head arithmics
-
+        let atom_signatures = plan
+            .sub_trees()
+            .get(&plan.root())
+            .unwrap()
+            .into_iter()
+            .map(|&rhs_id| AtomSignature::new(true, rhs_id))
+            .collect::<Vec<AtomSignature>>();
+        let head_transformation = Transformation::head(
+            last_transformation.output().clone(),
+            &catalog.top_down_trace_exprs(catalog.head_arithmetic_exprs(), &atom_signatures),
+        );
         Self {
             rule: catalog.rule().clone(),
             dependent_atom_names: catalog.dependent_atom_names(),
             plan,
             last_transformation,
+            head_transformation,
             transformation_tree, // the final transformation tree
         }
     }
@@ -893,6 +905,10 @@ impl fmt::Display for RuleQueryPlan {
             &mut visited,
             "",
             true,
-        )
+        )?;
+
+        // print the head transformation at the end
+        writeln!(f, "\nhead")?;
+        writeln!(f, "└── {}", self.head_transformation)
     }
 }

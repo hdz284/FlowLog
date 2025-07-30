@@ -16,7 +16,7 @@ pub struct Catalog {
     signature_to_argument_str_map: HashMap<AtomArgumentSignature, String>,                // map each (core, negative or subatom) signature to the argument_str (reverse map)
     argument_presence_map: HashMap<String, Vec<Option<AtomArgumentSignature>>>,           // map each argument_str to the first presence of the argument in every core atom (None if absent)
     
-    head_arithmetic_arguments: Vec<ArithmeticPos>,
+    head_arithmetic_exprs: Vec<Arithmetic>,
 
     head_variables_list: Vec<String>,
 
@@ -134,6 +134,10 @@ impl Catalog {
 
     pub fn head_variables_list(&self) -> Vec<String> {
         self.head_variables_list.clone()
+    }
+
+    pub fn head_arithmetic_exprs(&self) -> &Vec<Arithmetic> {
+        &self.head_arithmetic_exprs
     }
 
     pub fn is_const_or_var_eq_or_placeholder(&self, signature: &AtomArgumentSignature) -> bool {
@@ -316,13 +320,13 @@ impl Catalog {
             })
             .collect();
 
-        let (head_variables_list, head_arithmetic_arguments) =
-            Self::populate_head_arguments(rule.head().head_arguments(), &argument_presence_map);
+        let (head_variables_list, head_arithmetic_exprs) =
+            Self::extract_head_arguments(rule.head().head_arguments());
 
         Self { rule: rule.clone(),
                signature_to_argument_str_map,
                argument_presence_map,
-               head_arithmetic_arguments,
+               head_arithmetic_exprs,
                head_variables_list,
                atom_names,
                atom_argument_signatures,
@@ -803,6 +807,31 @@ impl Catalog {
         }
         result
     }
+
+    /* for each trace_expr (Arithmetic), convert to ArithmeticPos by looking up argument signatures */
+    pub fn top_down_trace_exprs(
+        &self,
+        trace_exprs: &[Arithmetic],
+        atom_signatures: &Vec<AtomSignature>,
+    ) -> Vec<ArithmeticPos> {
+        if let Some(non_positive) = atom_signatures.iter().find(|atom_signature| !atom_signature.is_positive()) {
+            panic!("negated atom for top_down_trace_exprs: {:?}", non_positive);
+        }
+
+        trace_exprs
+            .iter()
+            .map(|arithmetic| {
+                // Collect all variables in the arithmetic expression in order
+                let var_names = arithmetic.variables_list_in_order();
+                
+                // Look up argument signatures for each variable using top_down_trace
+                let var_signatures = self.top_down_trace(&var_names, atom_signatures);
+                
+                // Convert Arithmetic to ArithmeticPos using the signatures
+                ArithmeticPos::from_arithmetic(arithmetic, &var_signatures)
+            })
+            .collect()
+    }
     
     /* for each trace_argument_str, search for the first argument signature of it from a negative atom_signature (panic if not found) */
     pub fn top_down_trace_negated(
@@ -836,17 +865,15 @@ impl Catalog {
         result
     }
 
-    pub fn populate_head_arguments(
+    pub fn extract_head_arguments(
         head_args: &[HeadArg],
-        argument_presence_map: &HashMap<String, Vec<Option<AtomArgumentSignature>>>,
-    ) -> (Vec<String>, Vec<ArithmeticPos>) {
+    ) -> (Vec<String>, Vec<Arithmetic>) {
         let mut head_vars_set = HashSet::new();
         let mut head_vars_list = Vec::new();
         let mut head_exprs = Vec::new();
 
         for head_arg in head_args {
             let arithmetic = match head_arg {
-                // TODO: optimization, var should be subset of arithmetic
                 HeadArg::Var(v) => Arithmetic::new(Factor::Var(v.clone()), vec![]),
                 HeadArg::Arith(a) => a.clone(),
                 HeadArg::Aggregation(a) => a.arithmetic().clone(),
@@ -855,26 +882,15 @@ impl Catalog {
             // Collect variables in order (with duplicates)
             let var_names = arithmetic.variables_list_in_order();
 
-            // Lookup argument signatures for each variable
-            let var_signatures: Vec<AtomArgumentSignature> = var_names
-            .iter()
-            .map(|v| {
+            // Add unique variables to the head variables list
+            for v in var_names {
                 if head_vars_set.insert(v.clone()) {
-                    head_vars_list.push(v.clone());
+                    head_vars_list.push(v);
                 }
+            }
 
-                argument_presence_map
-                    .get(v.as_str())
-                    .and_then(|vec| vec.iter().find_map(|x| *x))
-                    .unwrap_or_else(|| {
-                        panic!("populate_head_arguments: variable '{}' not found in argument_presence_map", v)
-                    })
-            })
-            .collect();
-
-            // Build arithmetic position
-            let arith_pos = ArithmeticPos::from_arithmetic(&arithmetic, &var_signatures);
-            head_exprs.push(arith_pos);
+            // Store the arithmetic expression directly
+            head_exprs.push(arithmetic);
         }
 
         (head_vars_list, head_exprs)

@@ -1,9 +1,10 @@
-use std::fmt;
-use std::sync::Arc;
+use crate::collections::{Collection, CollectionSignature};
+use catalog::arithmetic::ArithmeticPos;
+use catalog::atoms::AtomArgumentSignature;
 use catalog::compare::ComparisonExprPos;
 use parsing::rule::Const;
-use catalog::atoms::AtomArgumentSignature;
-use crate::collections::{Collection, CollectionSignature};
+use std::fmt;
+use std::sync::Arc;
 // use crate::compare::ComparisonExprArgument;
 use crate::flow::TransformationFlow;
 
@@ -11,9 +12,9 @@ use crate::flow::TransformationFlow;
     Collection { Atom { "tc" }, ((y), x) }, Collection { Atom { "arc" }, ((y), z, w) }
     Collection { Atom { "tc" }, ((z), x, w) }
 
-    TransformationFlow::Jn    { 
-                                    key:   TransformationArgument::Jn((1, 1, 0)), 
-                                    value: TransformationArgument::Jn((0, 1, 0)), TransformationArgument::Jn((1, 1, 2)) 
+    TransformationFlow::Jn    {
+                                    key:   TransformationArgument::Jn((1, 1, 0)),
+                                    value: TransformationArgument::Jn((0, 1, 0)), TransformationArgument::Jn((1, 1, 2))
                                 }
 */
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -95,9 +96,15 @@ pub enum Transformation {
         input: (Arc<Collection>, Arc<Collection>),
         output: Arc<Collection>,
         flow: TransformationFlow,
-    }
-}
+    },
 
+    /* head */
+    Head {
+        input: Arc<Collection>,
+        output: Arc<Collection>,
+        flow: TransformationFlow,
+    },
+}
 
 impl Transformation {
     pub fn unary(&self) -> &Arc<Collection> {
@@ -150,6 +157,8 @@ impl Transformation {
 
             Self::NjKvK { output, .. } => output,
             Self::NjKK { output, .. } => output,
+
+            Self::Head { output, .. } => output,
         }
     }
 
@@ -169,44 +178,46 @@ impl Transformation {
             Self::Cartesian { flow, .. } => flow,
             Self::NjKvK { flow, .. } => flow,
             Self::NjKK { flow, .. } => flow,
+
+            Self::Head { flow, .. } => flow,
         }
     }
 
-    pub fn kv_to_kv(input: Arc<Collection>, 
-                    output_key_signatures: &Vec<AtomArgumentSignature>, 
-                    output_value_signatures: &Vec<AtomArgumentSignature>,
-                    const_eq_constraints: &Vec<(AtomArgumentSignature, Const)>, 
-                    var_eq_constraints: &Vec<(AtomArgumentSignature, AtomArgumentSignature)>,
-                    compare_exprs: &Vec<ComparisonExprPos>
-                ) -> Self {
+    pub fn kv_to_kv(
+        input: Arc<Collection>,
+        output_key_signatures: &Vec<AtomArgumentSignature>,
+        output_value_signatures: &Vec<AtomArgumentSignature>,
+        const_eq_constraints: &Vec<(AtomArgumentSignature, Const)>,
+        var_eq_constraints: &Vec<(AtomArgumentSignature, AtomArgumentSignature)>,
+        compare_exprs: &Vec<ComparisonExprPos>,
+    ) -> Self {
         let (input_key_signatures, input_value_signatures) = input.kv_argument_signatures();
-        let flow = 
-            TransformationFlow::kv_to_kv(
-                input_key_signatures, 
-                input_value_signatures, 
-                output_key_signatures, 
-                output_value_signatures, 
-                const_eq_constraints, 
-                var_eq_constraints, 
-                compare_exprs
-            );
-        
+        let flow = TransformationFlow::kv_to_kv(
+            input_key_signatures,
+            input_value_signatures,
+            output_key_signatures,
+            output_value_signatures,
+            const_eq_constraints,
+            var_eq_constraints,
+            compare_exprs,
+        );
+
         let is_row_in = input_key_signatures.is_empty();
         let is_row_out = output_key_signatures.is_empty();
         let is_key_only_out = output_value_signatures.is_empty();
 
         // input signatures is identical to output signatures and there are no filters
-        let is_no_op = is_row_in && 
-            (is_row_out || is_key_only_out) &&
-            const_eq_constraints.is_empty() && var_eq_constraints.is_empty() && compare_exprs.is_empty() &&
-            input_key_signatures
+        let is_no_op = is_row_in
+            && (is_row_out || is_key_only_out)
+            && const_eq_constraints.is_empty()
+            && var_eq_constraints.is_empty()
+            && compare_exprs.is_empty()
+            && input_key_signatures
                 .iter()
                 .chain(input_value_signatures.iter())
-                .eq(
-                    output_key_signatures
-                        .iter()
-                        .chain(output_value_signatures.iter())
-                );
+                .eq(output_key_signatures
+                    .iter()
+                    .chain(output_value_signatures.iter()));
 
         let input_signature_name = input.signature().name();
         let output_name = match (is_row_out, is_key_only_out) {
@@ -215,156 +226,250 @@ impl Transformation {
             (false, false) => format!("Kv({}){}", input_signature_name, flow),
             (true, true) => panic!("Transformation::kv_to_kv: null signatures"),
         };
-           
-        let output = 
-            Arc::new(
-                Collection::new(
-                    CollectionSignature::UnaryTransformationOutput { name: output_name },
-                    output_key_signatures,
-                    output_value_signatures
-                )
-            );  
+
+        let output = Arc::new(Collection::new(
+            CollectionSignature::UnaryTransformationOutput { name: output_name },
+            output_key_signatures,
+            output_value_signatures,
+        ));
 
         match (is_row_in, is_row_out, is_key_only_out) {
-            (true, true, _) => Self::RowToRow { input, output, flow, is_no_op },
-            (true, false, true) => Self::RowToK { input, output, flow, is_no_op },
-            (true, false, false) => Self::RowToKv { input, output, flow },
-            (false, false, false) => Self::KvToKv { input, output, flow },
-            (false, false, true) => Self::KvToK { input, output, flow },
+            (true, true, _) => Self::RowToRow {
+                input,
+                output,
+                flow,
+                is_no_op,
+            },
+            (true, false, true) => Self::RowToK {
+                input,
+                output,
+                flow,
+                is_no_op,
+            },
+            (true, false, false) => Self::RowToKv {
+                input,
+                output,
+                flow,
+            },
+            (false, false, false) => Self::KvToKv {
+                input,
+                output,
+                flow,
+            },
+            (false, false, true) => Self::KvToK {
+                input,
+                output,
+                flow,
+            },
             _ => panic!("Transformation::kv_to_kv: unexpected kv to row transformation"),
         }
     }
 
-    pub fn join(input: (Arc<Collection>, Arc<Collection>),
-                output_key_signatures: &Vec<AtomArgumentSignature>,
-                output_value_signatures: &Vec<AtomArgumentSignature>,
-                compare_exprs: &Vec<ComparisonExprPos>
-            ) -> Self {
+    pub fn join(
+        input: (Arc<Collection>, Arc<Collection>),
+        output_key_signatures: &Vec<AtomArgumentSignature>,
+        output_value_signatures: &Vec<AtomArgumentSignature>,
+        compare_exprs: &Vec<ComparisonExprPos>,
+    ) -> Self {
         let (left_key_signatures, left_value_signatures) = input.0.kv_argument_signatures();
         let (right_key_signatures, right_value_signatures) = input.1.kv_argument_signatures();
 
-        let flow = 
-            TransformationFlow::join_to_kv(
-                left_key_signatures, 
-                left_value_signatures, 
-                right_key_signatures, 
-                right_value_signatures, 
-                output_key_signatures, 
-                output_value_signatures,
-                compare_exprs
-            );
-        
+        let flow = TransformationFlow::join_to_kv(
+            left_key_signatures,
+            left_value_signatures,
+            right_key_signatures,
+            right_value_signatures,
+            output_key_signatures,
+            output_value_signatures,
+            compare_exprs,
+        );
+
         let is_key_only_left_input = left_value_signatures.is_empty();
         let is_key_only_right_input = right_value_signatures.is_empty();
         let is_cartesian = left_key_signatures.is_empty();
         let left_signature_name = input.0.signature().name();
         let right_signature_name = input.1.signature().name();
 
-        let output =
-            Arc::new(
-                Collection::new(
-                    CollectionSignature::JnOutput {
-                        name: match (is_cartesian, is_key_only_left_input, is_key_only_right_input) {
-                            (true, _, _) => format!("Cartesian({}, {}){}", left_signature_name, right_signature_name, flow),
-                            (_, true, true) => format!("JnKK({}, {}){}", left_signature_name, right_signature_name, flow),
-                            (_, false, true) => format!("JnKvK({}, {}){}", left_signature_name, right_signature_name, flow),
-                            (_, false, false) => format!("JnKvKv({}, {}){}", left_signature_name, right_signature_name, flow),
-                            (_, true, false) => format!("JnKKv({}, {}){}", left_signature_name, right_signature_name, flow),
-                        }
-                    },
-                    output_key_signatures,
-                    output_value_signatures
-                )
-            );
-        
+        let output = Arc::new(Collection::new(
+            CollectionSignature::JnOutput {
+                name: match (
+                    is_cartesian,
+                    is_key_only_left_input,
+                    is_key_only_right_input,
+                ) {
+                    (true, _, _) => format!(
+                        "Cartesian({}, {}){}",
+                        left_signature_name, right_signature_name, flow
+                    ),
+                    (_, true, true) => format!(
+                        "JnKK({}, {}){}",
+                        left_signature_name, right_signature_name, flow
+                    ),
+                    (_, false, true) => format!(
+                        "JnKvK({}, {}){}",
+                        left_signature_name, right_signature_name, flow
+                    ),
+                    (_, false, false) => format!(
+                        "JnKvKv({}, {}){}",
+                        left_signature_name, right_signature_name, flow
+                    ),
+                    (_, true, false) => format!(
+                        "JnKKv({}, {}){}",
+                        left_signature_name, right_signature_name, flow
+                    ),
+                },
+            },
+            output_key_signatures,
+            output_value_signatures,
+        ));
+
         if is_cartesian {
-            Self::Cartesian { input, output, flow }
+            Self::Cartesian {
+                input,
+                output,
+                flow,
+            }
         } else {
             match (is_key_only_left_input, is_key_only_right_input) {
-                (true, true) => Self::JnKK { input, output, flow },
-                (false, true) => Self::JnKvK { input, output, flow },
-                (false, false) => Self::JnKvKv { input, output, flow },
-                (true, false) => Self::JnKKv { input, output, flow },
+                (true, true) => Self::JnKK {
+                    input,
+                    output,
+                    flow,
+                },
+                (false, true) => Self::JnKvK {
+                    input,
+                    output,
+                    flow,
+                },
+                (false, false) => Self::JnKvKv {
+                    input,
+                    output,
+                    flow,
+                },
+                (true, false) => Self::JnKKv {
+                    input,
+                    output,
+                    flow,
+                },
             }
         }
     }
 
-    pub fn antijoin(input: (Arc<Collection>, Arc<Collection>),
-                    output_key_signatures: &Vec<AtomArgumentSignature>, 
-                    output_value_signatures: &Vec<AtomArgumentSignature>
-            ) -> Self {
+    pub fn antijoin(
+        input: (Arc<Collection>, Arc<Collection>),
+        output_key_signatures: &Vec<AtomArgumentSignature>,
+        output_value_signatures: &Vec<AtomArgumentSignature>,
+    ) -> Self {
         let (left_key_signatures, left_value_signatures) = input.0.kv_argument_signatures();
         let (right_key_signatures, right_value_signatures) = input.1.kv_argument_signatures();
 
-        assert!(right_value_signatures.is_empty(), "Transformation::antijoin right_value_signatures must be empty");
-        
-        let flow = 
-            TransformationFlow::join_to_kv(
-                left_key_signatures, 
-                left_value_signatures, 
-                right_key_signatures, 
-                right_value_signatures, 
-                output_key_signatures, 
-                output_value_signatures,
-                &vec![] // there shouldn't be any compare_exprs for antijoins
-            );
-        
+        assert!(
+            right_value_signatures.is_empty(),
+            "Transformation::antijoin right_value_signatures must be empty"
+        );
+
+        let flow = TransformationFlow::join_to_kv(
+            left_key_signatures,
+            left_value_signatures,
+            right_key_signatures,
+            right_value_signatures,
+            output_key_signatures,
+            output_value_signatures,
+            &vec![], // there shouldn't be any compare_exprs for antijoins
+        );
+
         let is_key_only_left_input = left_value_signatures.is_empty();
-        let output = 
-            Arc::new(
-                Collection::new(
-                    CollectionSignature::NegJnOutput { 
-                        name: if is_key_only_left_input { 
-                                format!("NjKK({}, {}){}", input.0.signature().name(), input.1.signature().name(), flow) 
-                              } else { 
-                                format!("NjKvK({}, {}){}", input.0.signature().name(), input.1.signature().name(), flow) 
-                              },
-                    },
-                    output_key_signatures,
-                    output_value_signatures
-                )
-            );
-        
+        let output = Arc::new(Collection::new(
+            CollectionSignature::NegJnOutput {
+                name: if is_key_only_left_input {
+                    format!(
+                        "NjKK({}, {}){}",
+                        input.0.signature().name(),
+                        input.1.signature().name(),
+                        flow
+                    )
+                } else {
+                    format!(
+                        "NjKvK({}, {}){}",
+                        input.0.signature().name(),
+                        input.1.signature().name(),
+                        flow
+                    )
+                },
+            },
+            output_key_signatures,
+            output_value_signatures,
+        ));
+
         match is_key_only_left_input {
-            true => Self::NjKK { input, output, flow },
-            false => Self::NjKvK { input, output, flow },
+            true => Self::NjKK {
+                input,
+                output,
+                flow,
+            },
+            false => Self::NjKvK {
+                input,
+                output,
+                flow,
+            },
+        }
+    }
+
+    pub fn head(input: Arc<Collection>, output_value_exprs: &Vec<ArithmeticPos>) -> Self {
+        let flow = TransformationFlow::head_row_to_row(
+            input.kv_argument_signatures().1,
+            output_value_exprs,
+        );
+
+        let output = Arc::new(Collection::new(
+            CollectionSignature::Head {
+                name: format!("Head({}){}", input.signature().name(), flow),
+            },
+            &vec![],
+            &vec![],
+        ));
+
+        Self::Head {
+            input,
+            output,
+            flow,
         }
     }
 }
 
-
 impl fmt::Display for Transformation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::RowToRow { output, is_no_op, .. } => {
+            Self::RowToRow {
+                output, is_no_op, ..
+            } => {
                 write!(
                     f,
                     "{} {}",
-                    if *is_no_op { "∅" } else { "→" }, output.pprint(),
+                    if *is_no_op { "∅" } else { "→" },
+                    output.pprint(),
                 )
             }
-            Self::RowToK { output, is_no_op, .. } => {
+            Self::RowToK {
+                output, is_no_op, ..
+            } => {
                 write!(
                     f,
                     "{} {}",
-                    if *is_no_op { "∅" } else { "⟶" }, output.pprint(),
+                    if *is_no_op { "∅" } else { "⟶" },
+                    output.pprint(),
                 )
             }
             Self::RowToKv { output, .. } => {
-                write!(
-                    f,
-                    "⟶ {}",
-                    output.pprint(),
-                )
+                write!(f, "⟶ {}", output.pprint(),)
             }
             Self::KvToKv { output, .. } | Self::KvToK { output, .. } => {
-                write!(
-                    f,
-                    "⟶ {}",
-                    output.pprint(),
-                )
+                write!(f, "⟶ {}", output.pprint(),)
             }
-            Self::JnKK { output, .. } | Self::JnKKv { output, .. } | Self::JnKvK { output, .. } | Self::JnKvKv { output, .. } => {
+            Self::JnKK { output, .. }
+            | Self::JnKKv { output, .. }
+            | Self::JnKvK { output, .. }
+            | Self::JnKvKv { output, .. } => {
                 write!(
                     f,
                     "⋈ {}", // bowtie for join
@@ -372,11 +477,7 @@ impl fmt::Display for Transformation {
                 )
             }
             Self::Cartesian { output, .. } => {
-                write!(
-                    f,
-                    "⨯ {}", 
-                    output.pprint(),
-                )
+                write!(f, "x {}", output.pprint(),)
             }
             Self::NjKvK { output, .. } | Self::NjKK { output, .. } => {
                 write!(
@@ -385,8 +486,9 @@ impl fmt::Display for Transformation {
                     output.pprint(),
                 )
             }
-            // _ => panic!("Transformation::fmt: not implemented"),
+            Self::Head { output, .. } => {
+                write!(f, "↑ {}", output.pprint())
+            }
         }
     }
 }
-

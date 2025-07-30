@@ -15,7 +15,7 @@ fn main() {
         )
         .init();
 
-    let program_source = "./examples/programs/andersen.dl";
+    let program_source = "./examples/programs/csda.dl";
     let unparsed_str = fs::read_to_string(program_source)
         .unwrap_or_else(|_| panic!("can't read program from \"{}\"", program_source));
 
