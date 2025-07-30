@@ -13,12 +13,11 @@ pub struct GroupStrataQueryPlan {
     is_recursive: bool,
     rules: Vec<FLRule>,
 
-    enter_scope: HashSet<Arc<CollectionSignature>>,                                                    // base and intermediates rel to bring into scope
-    last_signatures_map: HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>,             // sinks of the dataflow DAG (map head to a vector of last signatures)
-    
-    reverse_last_signatures_map: HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>,      // reverse map for the last signatures 
+    enter_scope: HashSet<Arc<CollectionSignature>>, // base and intermediates rel to bring into scope
+    last_signatures_map: HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>, // sinks of the dataflow DAG (map head to a vector of last signatures)
+
+    reverse_last_signatures_map: HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>>, // reverse map for the last signatures
     strata_plan: Vec<Vec<Transformation>>,
-                                                   
 }
 
 impl GroupStrataQueryPlan {
@@ -46,7 +45,10 @@ impl GroupStrataQueryPlan {
         );
 
         // populate the reverse_last_signatures_map (map last signature to a its heads)
-        let mut reverse_last_signatures_map: HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>> = HashMap::new();
+        let mut reverse_last_signatures_map: HashMap<
+            Arc<CollectionSignature>,
+            Vec<Arc<CollectionSignature>>,
+        > = HashMap::new();
         for (head_signature, last_signatures) in last_signatures_map.iter() {
             for last_signature in last_signatures {
                 reverse_last_signatures_map
@@ -90,14 +92,14 @@ impl GroupStrataQueryPlan {
             enter_scope,
             last_signatures_map,
             reverse_last_signatures_map,
-            strata_plan
+            strata_plan,
         }
     }
 
     fn construct_non_recursive(
         seen: &mut HashSet<Arc<CollectionSignature>>,
         root: &Transformation,
-        transformation_tree: &HashMap<Transformation, (Transformation, Transformation)>,
+        transformation_tree: &HashMap<Transformation, (Transformation, Option<Transformation>)>,
         disable_sharing: bool,
     ) -> Vec<Transformation> {
         let output_signature = root.output().signature();
@@ -114,7 +116,7 @@ impl GroupStrataQueryPlan {
 
         transformation_tree.get(root).map_or_else(
             || vec![root.clone()], // leaf op
-            |(l_root, r_root)| {
+            |(l_root, r_root_opt)| {
                 // recursive case
                 let mut plan = Vec::new();
                 plan.extend(Self::construct_non_recursive(
@@ -123,12 +125,14 @@ impl GroupStrataQueryPlan {
                     transformation_tree,
                     disable_sharing,
                 ));
-                plan.extend(Self::construct_non_recursive(
-                    seen,
-                    r_root,
-                    transformation_tree,
-                    disable_sharing,
-                ));
+                if let Some(r_root) = r_root_opt {
+                    plan.extend(Self::construct_non_recursive(
+                        seen,
+                        r_root,
+                        transformation_tree,
+                        disable_sharing,
+                    ));
+                }
                 plan.push(root.clone());
                 plan
             },
@@ -139,7 +143,7 @@ impl GroupStrataQueryPlan {
         seen: &mut HashSet<Arc<CollectionSignature>>,
         nested_seen: &mut HashSet<Arc<CollectionSignature>>,
         root: &Transformation,
-        transformation_tree: &HashMap<Transformation, (Transformation, Transformation)>,
+        transformation_tree: &HashMap<Transformation, (Transformation, Option<Transformation>)>,
         disable_sharing: bool,
     ) -> (Vec<Transformation>, HashSet<Arc<CollectionSignature>>) {
         let output_signature = root.output().signature();
@@ -171,7 +175,7 @@ impl GroupStrataQueryPlan {
                     HashSet::from([Arc::clone(root.unary().signature())]),
                 )
             },
-            |(l_root, r_root)| {
+            |(l_root, r_root_opt)| {
                 // recursive case
                 let (l_plan, l_enter_scope) = Self::construct_recursive(
                     seen,
@@ -180,13 +184,17 @@ impl GroupStrataQueryPlan {
                     transformation_tree,
                     disable_sharing,
                 );
-                let (r_plan, r_enter_scope) = Self::construct_recursive(
-                    seen,
-                    nested_seen,
-                    r_root,
-                    transformation_tree,
-                    disable_sharing,
-                );
+                let (r_plan, r_enter_scope) = if let Some(r_root) = r_root_opt {
+                    Self::construct_recursive(
+                        seen,
+                        nested_seen,
+                        r_root,
+                        transformation_tree,
+                        disable_sharing,
+                    )
+                } else {
+                    (vec![], HashSet::new())
+                };
 
                 (
                     l_plan
@@ -236,7 +244,9 @@ impl GroupStrataQueryPlan {
         &self.last_signatures_map
     }
 
-    pub fn reverse_last_signatures_map(&self) -> &HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>> {
+    pub fn reverse_last_signatures_map(
+        &self,
+    ) -> &HashMap<Arc<CollectionSignature>, Vec<Arc<CollectionSignature>>> {
         &self.reverse_last_signatures_map
     }
 

@@ -9,4 +9,4 @@
 
 .rule
 tc(x, y) :- NullEdge(x, y).
-tc(x, y + z) :- tc(x, y), Edge(y, z).
+tc(x / 2 + y, z * y + 1) :- tc(x, y), Edge(y, z).

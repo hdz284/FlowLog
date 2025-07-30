@@ -17,9 +17,8 @@ pub struct RuleQueryPlan {
     rule: FLRule,
     dependent_atom_names: HashSet<String>,
     plan: PlanTree,                      // join spanning tree
-    last_transformation: Transformation, // root of the binary transformation tree
-    head_transformation: Transformation, // Head arithmetic transformation
-    transformation_tree: HashMap<Transformation, (Transformation, Transformation)>, // binary transformation tree
+    last_transformation: Transformation, // root of the transformation tree (including head transformation)
+    transformation_tree: HashMap<Transformation, (Transformation, Option<Transformation>)>, // transformation tree with optional second child
 }
 
 impl RuleQueryPlan {
@@ -31,7 +30,7 @@ impl RuleQueryPlan {
         &self,
     ) -> (
         &Transformation,
-        &HashMap<Transformation, (Transformation, Transformation)>,
+        &HashMap<Transformation, (Transformation, Option<Transformation>)>,
     ) {
         (&self.last_transformation, &self.transformation_tree)
     }
@@ -61,7 +60,7 @@ impl RuleQueryPlan {
         // head arithmics decomposed as strings
         let head_value_arguments: Vec<String> = catalog.head_variables_list();
 
-        let (last_transformation, transformation_tree) = Self::recursive_transformations(
+        let (last_transformation, mut transformation_tree) = Self::recursive_transformations(
             &catalog,          // ground truth
             &plan.sub_trees(), // ground truth
             plan.root(),
@@ -89,13 +88,19 @@ impl RuleQueryPlan {
             last_transformation.output().clone(),
             &catalog.top_down_trace_exprs(catalog.head_arithmetic_exprs(), &atom_signatures),
         );
+
+        // Add head transformation as unary (no second child)
+        transformation_tree.insert(
+            head_transformation.clone(),
+            (last_transformation.clone(), None),
+        );
+
         Self {
             rule: catalog.rule().clone(),
             dependent_atom_names: catalog.dependent_atom_names(),
             plan,
-            last_transformation,
-            head_transformation,
-            transformation_tree, // the final transformation tree
+            last_transformation: head_transformation.clone(), // Head transformation becomes the new root
+            transformation_tree,
         }
     }
 
@@ -111,7 +116,7 @@ impl RuleQueryPlan {
         active_comparison_predicates: &[usize], // invariant: active_comparison_predicates must be subsumed by all variables under the subtree at root
     ) -> (
         Transformation,
-        HashMap<Transformation, (Transformation, Transformation)>,
+        HashMap<Transformation, (Transformation, Option<Transformation>)>,
     ) {
         /* decompose plan into sub-root ⋈ (...) ⋈ (...) ... */
         /* planning_atom_signature is the sub-root atom for processing */
@@ -330,7 +335,7 @@ impl RuleQueryPlan {
 
                 (
                     base_join.clone(),
-                    HashMap::from([(base_join, (left_transformation, right_transformation))]),
+                    HashMap::from([(base_join, (left_transformation, Some(right_transformation)))]),
                 )
             } else {
                 /* some negated case */
@@ -387,7 +392,7 @@ impl RuleQueryPlan {
                     active_comparison_predicates,
                 );
 
-                antijoin_tree.insert(base_join, (left_transformation, right_transformation));
+                antijoin_tree.insert(base_join, (left_transformation, Some(right_transformation)));
 
                 (last_antijoin, antijoin_tree)
             };
@@ -411,7 +416,7 @@ impl RuleQueryPlan {
         active_comparison_predicates: &[usize],
     ) -> (
         Transformation,
-        HashMap<Transformation, (Transformation, Transformation)>,
+        HashMap<Transformation, (Transformation, Option<Transformation>)>,
     ) {
         let planning_rhs_id = planning_atom_signature.rhs_id();
         let planning_atom_argument_signatures =
@@ -539,7 +544,7 @@ impl RuleQueryPlan {
         active_comparison_predicates: &[usize], // only consumed by the negated atoms, not the planning atoms
     ) -> (
         Transformation,
-        HashMap<Transformation, (Transformation, Transformation)>,
+        HashMap<Transformation, (Transformation, Option<Transformation>)>,
     ) {
         if negated_atom_signatures.is_empty() {
             /* caller of recursive_antijoins should have prepared previous transformations */
@@ -635,7 +640,7 @@ impl RuleQueryPlan {
 
             tree.insert(
                 root_transformation.clone(),
-                (left_transformation, right_transformation),
+                (left_transformation, Some(right_transformation)),
             );
 
             (root_transformation, tree)
@@ -651,7 +656,7 @@ impl RuleQueryPlan {
         active_comparison_predicates: &[usize],
     ) -> (
         Transformation,
-        HashMap<Transformation, (Transformation, Transformation)>,
+        HashMap<Transformation, (Transformation, Option<Transformation>)>,
     ) {
         if subatom_signatures.is_empty() {
             let planning_rhs_id = planning_atom_signature.rhs_id();
@@ -779,7 +784,7 @@ impl RuleQueryPlan {
 
             tree.insert(
                 root_transformation.clone(),
-                (left_transformation, right_transformation),
+                (left_transformation, Some(right_transformation)),
             );
 
             (root_transformation, tree)
@@ -842,7 +847,7 @@ impl fmt::Display for RuleQueryPlan {
         // helper
         fn print_transformation(
             f: &mut fmt::Formatter<'_>,
-            transformation_tree: &HashMap<Transformation, (Transformation, Transformation)>,
+            transformation_tree: &HashMap<Transformation, (Transformation, Option<Transformation>)>,
             transformation: &Transformation,
             visited: &mut HashSet<Transformation>,
             indent: &str,  // indentation string
@@ -867,25 +872,39 @@ impl fmt::Display for RuleQueryPlan {
             if let Some(downstream) = transformation_tree.get(transformation) {
                 let new_indent = format!("{}{}", indent, if is_last { "    " } else { "│   " });
 
-                // print the right child
-                print_transformation(
-                    f,
-                    transformation_tree,
-                    &downstream.1,
-                    visited,
-                    &new_indent,
-                    false,
-                )?;
+                // Check if this is a unary transformation (no second child)
+                if downstream.1.is_none() {
+                    // Unary transformation - only print one child
+                    print_transformation(
+                        f,
+                        transformation_tree,
+                        &downstream.0,
+                        visited,
+                        &new_indent,
+                        true,
+                    )?;
+                } else {
+                    // Binary transformation - print both children
+                    // print the right child
+                    print_transformation(
+                        f,
+                        transformation_tree,
+                        downstream.1.as_ref().unwrap(),
+                        visited,
+                        &new_indent,
+                        false,
+                    )?;
 
-                // print the left child
-                print_transformation(
-                    f,
-                    transformation_tree,
-                    &downstream.0,
-                    visited,
-                    &new_indent,
-                    true,
-                )?;
+                    // print the left child
+                    print_transformation(
+                        f,
+                        transformation_tree,
+                        &downstream.0,
+                        visited,
+                        &new_indent,
+                        true,
+                    )?;
+                }
             }
 
             Ok(())
@@ -905,10 +924,6 @@ impl fmt::Display for RuleQueryPlan {
             &mut visited,
             "",
             true,
-        )?;
-
-        // print the head transformation at the end
-        writeln!(f, "\nhead")?;
-        writeln!(f, "└── {}", self.head_transformation)
+        )
     }
 }

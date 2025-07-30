@@ -112,7 +112,7 @@ impl Transformation {
             Self::RowToRow { input, .. } => input,
             Self::RowToKv { input, .. } => input,
             Self::RowToK { input, .. } => input,
-
+            Self::Head { input, .. } => input,
             _ => panic!("Transformation::single_input: not implemented"),
         }
     }
@@ -122,6 +122,7 @@ impl Transformation {
             Self::RowToRow { .. } => true,
             Self::RowToKv { .. } => true,
             Self::RowToK { .. } => true,
+            Self::Head { .. } => true,
             _ => false,
         }
     }
