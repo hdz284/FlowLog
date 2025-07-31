@@ -377,6 +377,13 @@ impl TransformationFlow {
             value: Arc::new(flow_value_signatures),
         }
     }
+
+    pub fn head_arity(&self) -> usize {
+        match self {
+            Self::RowToHeadRow { value } => value.len(),
+            _ => panic!("head_arity called on non-head flow"),
+        }
+    }
 }
 
 impl fmt::Display for TransformationFlow {

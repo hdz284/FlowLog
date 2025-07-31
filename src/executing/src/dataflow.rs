@@ -113,6 +113,15 @@ pub fn program_execution(
                                     );
                                 },
 
+                                Transformation::Head { flow,.. } => {
+                                    assert_eq!(ik, 0);
+                                    let target = flow.head_arity();
+                                    let output_head = Arc::new(codegen_row_head!());
+                                    row_map.insert(
+                                        Arc::clone(output_signature), output_head
+                                    );
+                                }
+
                                 _ => panic!("abnormal unary transformation"),
                             }
                         } else {
@@ -315,6 +324,15 @@ pub fn program_execution(
                                             (Arc::clone(&output_kv), Arc::new(output_kv.arrange_dict()))
                                         );
                                     },
+
+                                    Transformation::Head { flow,.. } => {
+                                        assert_eq!(ik, 0);
+                                        let target = flow.head_arity();
+                                        let output_head = Arc::new(codegen_row_head!());
+                                        nest_row_map.insert(
+                                            Arc::clone(output_signature),output_head
+                                        );
+                                    }
     
                                     _ => panic!("(recursive) abnormal unary transformation"),
                                 }
@@ -360,14 +378,16 @@ pub fn program_execution(
                                         // We do not collect sip rules in the collector, so we need to store them in the next row map
                                         // TODO: temporarily way to avoid sip rule, need carefully refactor
                                         // to avoid this in the future
-                                        let head_signatures = group_plan
+                                        // Here actually has problem, since we have an additional row_to_head_row, so there remove sip logic will
+                                        // actually not work
+                                        if let Some(head_signatures) = group_plan
                                                 .reverse_last_signatures_map()
-                                                .get(output_signature)
-                                                .expect(&format!("Missing head signature for: {}", output_signature.name()));
-
-                                        for head_signature in head_signatures {
-                                            if head_signature.name().contains("_sip") {
-                                                nest_row_map.insert(Arc::clone(head_signature), Arc::clone(&output_rel));
+                                                .get(output_signature) {
+                                            
+                                            for head_signature in head_signatures {
+                                                if head_signature.name().contains("_sip") {
+                                                    nest_row_map.insert(Arc::clone(head_signature), Arc::clone(&output_rel));
+                                                }
                                             }
                                         }
                                     },
