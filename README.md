@@ -141,11 +141,23 @@ two_hops(x, z) :- edge(x, y), edge(y, z), x != z.
 indirect_only(x, z) :- edge(x, y), edge(y, z), !edge(x, z).
 
 // aggregation
-count_paths(x, z, COUNT(y)) :- edge(x, y), edge(y, z).
+count_paths(x, z, count(y)) :- edge(x, y), edge(y, z).
+max_salary(dept, max(salary)) :- employee(emp_id, salary), works_in(emp_id, dept).
+```
+
+#### Aggregation
+
+FlowLog supports `count`, `sum`, `min`, `max` aggregation operators.
+
+**Important Notes:**
+- Aggregation must be the **last argument** in the head predicate
+- All rules for the same predicate must use the **same aggregation type**
+
+
 ```
 
 
-<!-- ## Examples
+## Examples
 
 The `examples/` directory contains several sample Datalog programs:
 
