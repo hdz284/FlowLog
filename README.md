@@ -154,9 +154,6 @@ FlowLog supports `count`, `sum`, `min`, `max` aggregation operators.
 - All rules for the same predicate must use the **same aggregation type**
 
 
-```
-
-
 ## Examples
 
 The `examples/` directory contains several sample Datalog programs:
