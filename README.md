@@ -4,6 +4,14 @@
 
 FlowLog is an efficient, scalable and extensible Datalog engine built atop Differential Dataflow.
 
+## Reproducing Paper Figures
+
+This repository includes the [Datalog-DB-benchmark](https://github.com/HarukiMoriarty/Datalog-DB-benchmark) as a git submodule. You can use this submodule to reproduce the experiment figures from the paper. Please initialize submodules after cloning:
+
+```bash
+git submodule update --init --recursive
+```
+
 ## Project Structure
 
 ```
