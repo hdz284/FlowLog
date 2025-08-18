@@ -144,10 +144,7 @@ Notes:
 
 ## Examples
 
-The `examples/` directory contains several sample Datalog programs:
-
-- `examples/programs/batik.dl`: DOOP program for batik
-- `examples/programs/`: Other sample programs tested -->
+The `examples/programs` directory contains several sample Datalog programs.
 
 <!-- ## Testing
 
