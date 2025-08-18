@@ -13,8 +13,8 @@ members = [
 ]
 
 [workspace.dependencies]
-timely = "0.21.5"
-differential-dataflow = "0.16.0"
+timely = "0.22.0"
+differential-dataflow = "0.16.1"
 clap = "4.5.40"
 itertools = "0.14.0"
 pest = "2.8.1"
