@@ -1,0 +1,3 @@
+[submodule "Datalog-DB-benchmark"]
+	path = Datalog-DB-benchmark
+	url = https://github.com/HarukiMoriarty/Datalog-DB-benchmark
