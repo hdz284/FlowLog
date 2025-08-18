@@ -1,12 +1,13 @@
-.in 
-.decl arc(src: number, dest: number) 
-.input arc.facts
-.decl source(src: number)
-.input ne.facts
+.in
+.decl Source(id: number)
+.input Source.csv
+
+.decl Arc(x: number, y: number)
+.input Arc.csv
 
 .printsize 
-.decl reach(src: number, dest: number) 
+.decl Reach(id: number)
 
 .rule
-reach(x) :- source(x).
-reach(x, sum(y)) :- arc(x, y), reach(x).
+Reach(y) :- Source(y).
+Reach(y) :- Reach(x), Arc(x,y).

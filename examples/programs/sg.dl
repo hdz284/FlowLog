@@ -1,18 +1,16 @@
-
-
 .in 
-.decl arc(src: number, dest: number) 
+.decl Arc(src: number, dest: number) 
+.input Arc.csv
 
 .printsize 
-.decl sg(src: number, dest: number) 
-
+.decl Sg(src: number, dest: number) 
 
 .rule
 
-# sg(x, y) :- dereference(p, x, z), dereference(p, y, z), !ne(z, z, p), z != p.
-# sgn(z, z) :- sg(x, z), sg(z, z), z == 3, z != x.
+# Sg(x, y) :- dereference(p, x, z), dereference(p, y, z), !ne(z, z, p), z != p.
+# Sgn(z, z) :- Sg(x, z), Sg(z, z), z == 3, z != x.
 
-sg(x, y) :- arc(a, x), arc(a, y), x != y.
-sg(x, y) :- arc(a, x), sg(a, b), arc(b, y).
+Sg(x, y) :- Arc(a, x), Arc(a, y), x != y.
+Sg(x, y) :- Arc(a, x), Sg(a, b), Arc(b, y).
 
 

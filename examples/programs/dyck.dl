@@ -1,26 +1,19 @@
 .in
-.decl arc(x:number, y:number, l:number)
-# .input arc(filename="./arc.csv", delimiter=",")
+.decl Arc(x:number, y:number, l:number)
+.input Arc.csv
 
 .printsize
-.decl zero(x:number, y:number)
-.decl one(x:number, y:number)
-.decl dyck(x:number, y:number)
+.decl Zero(x:number, y:number)
+.decl One(x:number, y:number)
+.decl Dyck(x:number, y:number)
 
 
 .rule
-zero(x, y) :- arc(x, y, 0).
-one(x, y) :- arc(x, y, 1).
+Zero(x, y) :- Arc(x, y, 0).
+One(x, y) :- Arc(x, y, 1).
 
-dyck(x, y) :- zero(x, z), zero(z, y).
-dyck(x, y) :- one(x, z), one(z, y).
-dyck(x, y) :- zero(x, z), dyck(z, w), zero(w, y).
-dyck(x, y) :- one(x, z), dyck(z, w), one(w, y).
-dyck(x, y) :- dyck(x, z), dyck(z, y).
-
-
-# dyck(x, y) :- arc(x, z, l), zero(z, y, l).
-# dyck(x, y) :- arc(x, z, l), dyck(z, w), zero(w, y, l).
-
-# ./target/release/executing -p ./examples/programs/dyck.dl -f /users/hangdong/kernel -c ./examples/csvs -w 8
-# sed -e 's/\ba\b/0/g' -e 's/\bd\b/1/g' bzip.csv > arc.facts
+Dyck(x, y) :- Zero(x, z), Zero(z, y).
+Dyck(x, y) :- One(x, z), One(z, y).
+Dyck(x, y) :- Zero(x, z), Dyck(z, w), Zero(w, y).
+Dyck(x, y) :- One(x, z), Dyck(z, w), One(w, y).
+Dyck(x, y) :- Dyck(x, z), Dyck(z, y).

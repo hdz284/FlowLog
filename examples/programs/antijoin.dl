@@ -1,9 +1,0 @@
-.in 
-.decl arc(src: number, dest: number)
-
-.printsize
-.decl tri(src: number)
-
-
-.rule
-tri(y) :- arc(x, y), !arc(x, 3), !arc(y, y).

@@ -1,12 +1,14 @@
-.in 
-.decl Edge(src: number, dest: number) 
-.input arc.facts
-.decl NullEdge(src: number, dest: number) 
-.input arc.facts
+.in
+.decl NullEdge(x: number, y: number)
+.input NullEdge.csv
+
+.decl Edge(x: number, y: number)
+.input Edge.csv
 
 .printsize 
-.decl tc(src: number, dest: number)
+.decl NullNode(x: number, y: number)
 
 .rule
-tc(x, sum(y)) :- NullEdge(x, y).
-tc(x, sum(z)) :- tc(x, y), Edge(y, z).
+NullNode(x, y) :- NullEdge(x, y).
+NullNode(x, y) :- NullNode(x, w), Edge(w, y).
+

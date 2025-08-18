@@ -1,7 +1,9 @@
 
 .in
-.decl insert_input(a: number, b: number, c: number, d: number)
-.decl remove_input(a: number, b: number)
+.decl Insert_input(a: number, b: number, c: number, d: number)
+.input Insert_input.csv
+.decl Remove_input(a: number, b: number)
+.input Remove_input.csv
 
 .printsize
 
@@ -36,8 +38,8 @@
 
 
 .rule
-insert(a, b, c, d) :- insert_input(a, b, c, d).
-remove(a, b) :- remove_input(a, b).
+insert(a, b, c, d) :- Insert_input(a, b, c, d).
+remove(a, b) :- Remove_input(a, b).
 assign(ctr, n, ctr, n, n) :- insert(ctr, n, _, _).
 hasChild(ParentCtr, ParentN) :- insert(_, _, ParentCtr, ParentN).
 
@@ -97,16 +99,14 @@ nextElem(PrevCtr, PrevN, NextCtr, NextN) :- !hasChild(PrevCtr, PrevN), nextSibli
 currentValue(ElemCtr, ElemN, Value) :- assign(IDCtr, IDN, ElemCtr, ElemN, Value), !remove(IDCtr, IDN).
 
 hasValue(ElemCtr, ElemN) :- currentValue(ElemCtr, ElemN, _).
-valueStep(FromCtr, FromN, ToCtr, ToN) :- hasValue(FromCtr, FromN), nextElem(FromCtr, FromN, ToCtr, ToN). 
-blankStep(FromCtr, FromN, ToCtr, ToN) :- 
-  !valueStep(FromCtr, FromN, ToCtr, ToN), 
-  nextElem(FromCtr, FromN, ToCtr, ToN).
 
-value_blank_star(FromCtr, FromN, ToCtr, ToN) :- valueStep(FromCtr, FromN, ToCtr, ToN).
-value_blank_star(FromCtr, FromN, ToCtr, ToN) :- value_blank_star(FromCtr, FromN, ViaCtr, ViaN), blankStep(ViaCtr, ViaN, ToCtr, ToN).
+skipBlank(FromCtr, FromN, ToCtr, ToN) :- nextElem(FromCtr, FromN, ToCtr, ToN).
+skipBlank(FromCtr, FromN, ToCtr, ToN) :- skipBlank(ViaCtr, ViaN, ToCtr, ToN), nextElem(FromCtr, FromN, ViaCtr, ViaN), !hasValue(ViaCtr, ViaN).
+
 
 nextVisible(PrevCtr, PrevN, NextCtr, NextN) :- 
-  value_blank_star(PrevCtr, PrevN, NextCtr, NextN), 
+  hasValue(PrevCtr, PrevN),
+  skipBlank(PrevCtr, PrevN, NextCtr, NextN), 
   hasValue(NextCtr, NextN).
 
 result(ctr1, ctr2, value) :- 

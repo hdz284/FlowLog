@@ -2,85 +2,65 @@
 
 <p align="center"> <img src="flowlog.png" alt="flowlog_logo" width="250"/> </p>
 
+This repository contains the implementation for the paper **"FlowLog: Efficient and Extensible Datalog via Incrementality"**.
+
 FlowLog is an efficient, scalable and extensible Datalog engine built atop Differential Dataflow.
-
-## Reproducing Paper Figures
-
-This repository includes the [Datalog-DB-benchmark](https://github.com/HarukiMoriarty/Datalog-DB-benchmark) as a git submodule. You can use this submodule to reproduce the experiment figures from the paper. Please initialize submodules after cloning:
-
-```bash
-git submodule update --init --recursive
-```
 
 ## Project Structure
 
+FlowLog follows a modular architecture where each component handles a specific part of the Datalog execution pipeline. The structure reflects the execution order as shown in the system architecture (paper Figure 1):
+
 ```
-├── catalog       # Program metadata representation
-├── debugging     # Debugging utilities
-├── executing     # Runtime execution engine
-├── macros        # Rust macros
-├── optimizing    # Query optimization
 ├── parsing       # Parsing datalog language
+├── strata        # Stratification logic
+├── catalog       # Program metadata representation
+├── optimizing    # Query optimization
 ├── planning      # Query planning
 ├── reading       # File and data input components
-├── strata        # Stratification logic
+├── executing     # Runtime execution engine
+├── macros        # Rust macros
+├── debugging     # Debugging utilities
 └── examples      # Example programs and datasets
 ```
 
+## Building
 
-
-### Building
 ```bash
-# Default build (Present semiring)
-cargo build --release
+# Release build
+cargo build --release                                             # PRESENT semiring (default)
+cargo build --release --features isize-type --no-default-features # ISIZE semiring
 
-# Build with isize semiring for incremental semantics
-cargo build --release --features isize-type --no-default-features
-
-# Debug builds
-cargo build                                              # Present semiring (default)
-cargo build --features isize-type --no-default-features  # isize semiring
+# Debug build
+cargo build                                                       # PRESENT semiring (default)
+cargo build --features isize-type --no-default-features           # ISIZE semiring
 ```
 
 ### Semiring Configuration
 
 FlowLog supports two semiring types for differential dataflow computations:
 
-- **Present** (default): `differential_dataflow::difference::Present` for standard semantics
-- **isize**: `isize` as the semiring type to enable incremental semantics
+- **Present** (default): Uses `differential_dataflow::difference::Present` for standard Datalog semantics. This semiring only tracks whether facts are present or absent, making it suitable for traditional Datalog evaluation.
+- **isize**: Uses `isize` as the semiring type to enable incremental semantics with multiplicities. This allows tracking how many times each fact is derived, enabling more sophisticated incremental computation and debugging capabilities.
 
 #### Build Options
 
-| Configuration | Command | Use Case |
-|--------------|---------|----------|
-| Present (default) | `cargo build --release` | Standard usage, backwards compatible |
-| isize | `cargo build --release --features isize-type --no-default-features` | Incremental semantics, multiplicities |
+| Semiring Type | Build Command | Use Case |
+|---------------|---------------|----------|
+| **Present** (default) | `cargo build --release` | Traditional Datalog evaluation, production use, better performance |
+| **isize** | `cargo build --release --features isize-type --no-default-features` | Advanced incremental computation, debugging derivations, tracking multiplicities |
 
 
-## Command Line
+## Usage
 
-- `./src`  
-  - `./src/parsing` - the parsing crate
-     
-     ```bash
-     cargo build # build the parsing crate
-     ```
-     
-     run the binary (i.e., `./src/parsing/src/main.rs`) of built parsing crate
-     ```bash
-     cargo run -p parsing
-     ```
-  - `./src/executing` - end to end execution
-      ```bash
-      # Build with default Present semiring
-      cargo build --release
-      
-      # Build with isize semiring for incremental semantics
-      cargo build --release --features isize-type --no-default-features
-      
-      # Run on 64 threads for batik.dl program
-      ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./examples/csvs -d $'\t' -w 64
-      ```
+After building, use the `executing` binary to run Datalog programs:
+
+```bash
+# Basic usage
+./target/release/executing -p <program.dl> -f <facts_directory> -w <number_threads>
+
+# Example with concrete paths
+./target/release/executing -p ./examples/programs/reach.dl -f ./examples/facts -w 8
+```
 
 ## Command Options
 
@@ -131,7 +111,11 @@ FlowLog supports two semiring types for differential dataflow computations:
 RUST_LOG=debug ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./results
 ```
 
+###  Datasets
 
+All datasets used in the paper evaluation are available for download:
+
+**📊 Paper Datasets**: https://pages.cs.wisc.edu/~m0riarty/dataset/
 
 ### Datalog Syntax
 
@@ -153,13 +137,9 @@ count_paths(x, z, count(y)) :- edge(x, y), edge(y, z).
 max_salary(dept, max(salary)) :- employee(emp_id, salary), works_in(emp_id, dept).
 ```
 
-#### Aggregation
+Notes:
 
-FlowLog supports `count`, `sum`, `min`, `max` aggregation operators.
-
-**Important Notes:**
-- Aggregation must be the **last argument** in the head predicate
-- All rules for the same predicate must use the **same aggregation type**
+1. Aggregation: FlowLog supports `count`, `sum`, `min`, `max` aggregation operators. Aggregation must be the **last argument** in the head predicate. All rules for the same predicate must use the **same aggregation type**
 
 
 ## Examples
@@ -183,6 +163,14 @@ This script will automatically:
 
 You should see ✅ PASSED for each program if everything is correct. -->
 
+
+## Reproducing Paper Figures
+
+This repository includes the [Datalog-DB-benchmark](https://github.com/HarukiMoriarty/Datalog-DB-benchmark) as a git submodule. You can use this submodule to reproduce the experiment figures from the paper. Please initialize submodules after cloning:
+
+```bash
+git submodule update --init --recursive
+```
 
 ## Contributing
 
