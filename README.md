@@ -6,21 +6,19 @@ This repository contains the implementation for the paper **"FlowLog: Efficient 
 
 FlowLog is an efficient, scalable and extensible Datalog engine built atop Differential Dataflow.
 
-## Project Structure
+## System Architecture
 
 FlowLog follows a modular architecture where each component handles a specific part of the Datalog execution pipeline. The structure reflects the execution order as shown in the system architecture (paper Figure 1):
 
 ```
-├── parsing       # Parsing datalog language
-├── strata        # Stratification logic
-├── catalog       # Program metadata representation
-├── optimizing    # Query optimization
-├── planning      # Query planning
-├── reading       # File and data input components
-├── executing     # Runtime execution engine
-├── macros        # Rust macros
-├── debugging     # Debugging utilities
-└── examples      # Example programs
+├── parsing       # Parsing Datalog program
+├── strata        # Stratification
+├── planning      # Generate IR and optimize (per rule)
+  ├── catalog       # Generate metadata 
+  └── optimizing    # Query optimization 
+└── executing     # Executor
+  ├── reading       # Reading data from CSV
+  └── macros        # Rust macros for code generate each differential operator
 ```
 
 ## Building
@@ -39,15 +37,15 @@ cargo build --features isize-type --no-default-features           # Incremental 
 
 FlowLog supports two execution modes for differential dataflow computations:
 
-- **Batch Mode** (Present semiring, default): Uses `differential_dataflow::difference::Present` for standard Datalog semantics. This mode only tracks whether facts are present or absent, making it suitable for traditional Datalog evaluation with better performance.
-- **Incremental Mode** (isize semiring): Uses `isize` as the semiring type to enable incremental semantics with multiplicities. This allows tracking how many times each fact is derived, enabling more sophisticated incremental computation and debugging capabilities.
+- **Batch Mode** (default): Uses `differential_dataflow::difference::Present` for static Datalog semantics. This mode only tracks whether facts are present or absent, making it suitable for high-performance static Datalog execution.
+- **Incremental Mode**: Uses `isize` as the `diff` type to enable DD's incremental semantics. This allows tracking how many times each fact is derived, enabling more sophisticated incremental computation and debugging capabilities.
 
 #### Build Options
 
 | Execution Mode | Build Command | Use Case |
 |----------------|---------------|----------|
-| **Batch Mode** (Present semiring, default) | `cargo build --release` | Traditional Datalog evaluation, production use, better performance |
-| **Incremental Mode** (isize semiring) | `cargo build --release --features isize-type --no-default-features` | Advanced incremental computation, debugging derivations, tracking multiplicities |
+| **Batch Mode** (default) | `cargo build --release` | Static Datalog execution (used in the paper benchmarking) |
+| **Incremental Mode** | `cargo build --release --features isize-type --no-default-features` | Incremental Datalog execution |
 
 
 ## Usage
