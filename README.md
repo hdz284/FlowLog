@@ -27,27 +27,27 @@ FlowLog follows a modular architecture where each component handles a specific p
 
 ```bash
 # Release build
-cargo build --release                                             # PRESENT semiring (default)
-cargo build --release --features isize-type --no-default-features # ISIZE semiring
+cargo build --release                                             # Batch mode (Present semiring, default)
+cargo build --release --features isize-type --no-default-features # Incremental mode (isize semiring)
 
 # Debug build
-cargo build                                                       # PRESENT semiring (default)
-cargo build --features isize-type --no-default-features           # ISIZE semiring
+cargo build                                                       # Batch mode (Present semiring, default)
+cargo build --features isize-type --no-default-features           # Incremental mode (isize semiring)
 ```
 
-### Semiring Configuration
+### Execution Modes
 
-FlowLog supports two semiring types for differential dataflow computations:
+FlowLog supports two execution modes for differential dataflow computations:
 
-- **Present** (default): Uses `differential_dataflow::difference::Present` for standard Datalog semantics. This semiring only tracks whether facts are present or absent, making it suitable for traditional Datalog evaluation.
-- **isize**: Uses `isize` as the semiring type to enable incremental semantics with multiplicities. This allows tracking how many times each fact is derived, enabling more sophisticated incremental computation and debugging capabilities.
+- **Batch Mode** (Present semiring, default): Uses `differential_dataflow::difference::Present` for standard Datalog semantics. This mode only tracks whether facts are present or absent, making it suitable for traditional Datalog evaluation with better performance.
+- **Incremental Mode** (isize semiring): Uses `isize` as the semiring type to enable incremental semantics with multiplicities. This allows tracking how many times each fact is derived, enabling more sophisticated incremental computation and debugging capabilities.
 
 #### Build Options
 
-| Semiring Type | Build Command | Use Case |
-|---------------|---------------|----------|
-| **Present** (default) | `cargo build --release` | Traditional Datalog evaluation, production use, better performance |
-| **isize** | `cargo build --release --features isize-type --no-default-features` | Advanced incremental computation, debugging derivations, tracking multiplicities |
+| Execution Mode | Build Command | Use Case |
+|----------------|---------------|----------|
+| **Batch Mode** (Present semiring, default) | `cargo build --release` | Traditional Datalog evaluation, production use, better performance |
+| **Incremental Mode** (isize semiring) | `cargo build --release --features isize-type --no-default-features` | Advanced incremental computation, debugging derivations, tracking multiplicities |
 
 
 ## Usage
