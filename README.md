@@ -20,7 +20,7 @@ FlowLog follows a modular architecture where each component handles a specific p
 ├── executing     # Runtime execution engine
 ├── macros        # Rust macros
 ├── debugging     # Debugging utilities
-└── examples      # Example programs and datasets
+└── examples      # Example programs
 ```
 
 ## Building
@@ -56,10 +56,10 @@ After building, use the `executing` binary to run Datalog programs:
 
 ```bash
 # Basic usage
-./target/release/executing -p <program.dl> -f <facts_directory> -w <number_threads>
+target/release/executing -p <program.dl> -f <facts_directory> -w <number_threads>
 
 # Example with concrete paths
-./target/release/executing -p ./examples/programs/reach.dl -f ./examples/facts -w 8
+target/release/executing -p examples/reach.dl -f reach -w 8
 ```
 
 ## Command Options
@@ -75,11 +75,11 @@ After building, use the `executing` binary to run Datalog programs:
 </tr>
 <tr>
   <td align="center"><code>-f, --facts &lt;DIR&gt;</code></td>
-  <td>Path containing input facts</td>
+  <td>Directory containing input fact files (EDBs)</td>
 </tr>
 <tr>
   <td align="center"><code>-c, --csvs &lt;DIR&gt;</code></td>
-  <td>Path for output results</td>
+  <td><strong>Optional:</strong> Directory for detailed output results (IDBs). If not set, only outputs EDB relation sizes. If enabled, outputs detailed EDB relations to the specified folder</td>
 </tr>
 <tr>
   <td align="center"><code>-d, --delimiter &lt;CHAR&gt;</code></td>
@@ -87,28 +87,38 @@ After building, use the `executing` binary to run Datalog programs:
 </tr>
 <tr>
   <td align="center"><code>-w, --workers &lt;NUM&gt;</code></td>
-  <td>Number of threads (default: single core)</td>
+  <td>Number of worker threads (default: 1)</td>
 </tr>
-<!-- <tr>
-  <td align="center"><code>-h, --help</code></td>
-  <td>Print help information</td>
-</tr> -->
+<tr>
+  <td align="center"><code>-O &lt;LEVEL&gt;</code></td>
+  <td>Optimization level (0-3): <br>
+  <code>0</code> - No optimization <br>
+  <code>1</code> - SIP optimization <br>
+  <code>2</code> - Planning optimization <br>
+  <code>3</code> - All optimizations (SIP + Planning)</td>
+</tr>
 </table>
 
 #### Example Commands
 
 ```bash
-# Run a program with default settings (Present semiring)
-./target/release/executing -p ./examples/programs/reach.dl -f ./examples/facts
+# Basic execution with default settings
+target/release/executing -p examples/reach.dl -f reach
 
-# Run with isize semiring for incremental semantics
-./target/release/executing -p ./examples/programs/reach.dl -f ./examples/facts
+# Multi-threaded execution with detailed output
+target/release/executing -p examples/tc.dl -f tc -c output -w 16
 
-# Run on 16 threads and tab as delimiter
-./target/release/executing -p ./examples/programs/tc.dl -f ./examples/csvs -d $'\t' -w 16
+# High-performance execution with all optimizations
+target/release/executing -p examples/batik.dl -f batik -d $'\t' -w 32 -O 3
 
-# Run on debug output and custom output directory
-RUST_LOG=debug ./target/release/executing -p ./examples/programs/batik.dl -f ./examples/csvs -c ./results
+# Fat mode for high-arity relations
+target/release/executing -p examples/complex.dl -f complex --fat-mode -w 8
+
+# Performance analysis without subexpression reuse
+target/release/executing -p examples/reach.dl -f reach --no-sharing
+
+# Debug mode with custom output directory
+RUST_LOG=debug target/release/executing -p examples/batik.dl -f batik -c results -O 2
 ```
 
 ###  Datasets
@@ -144,7 +154,7 @@ Notes:
 
 ## Examples
 
-The `examples/programs` directory contains several sample Datalog programs.
+The `examples` directory contains several sample Datalog programs.
 
 <!-- ## Testing
 
