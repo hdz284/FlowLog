@@ -21,22 +21,59 @@ FlowLog uses a modular architecture that collectively form a Datalog execution p
   └── macros        # Rust macros for code generate each differential operator
 ```
 
+## A Quick Example
 
-## A Quick Example (TODO!)
+### Environment Setup
+```bash
+# Requirements:
+# - Rust 1.89+ (stable)
+# - differential-dataflow = 0.16.1
+# - timely = 0.22.0
 
-Here's a simple Datalog program that computes the transitive closure of a binary relation: // also write down the dependencies! Cargo/Rust/timely/DD versions
+# To check your Rust version
+rustc --version
 
-```prolog
-# Program: examples/reach.dl
-relation edge(a, b).
-relation edge(b, c).
-relation edge(c, d).
-
-reach(X, Y) :- edge(X, Y).
-reach(X, Y) :- edge(X, Z), reach(Z, Y).
+# To install the environment:
+bash tool/env.sh
 ```
 
-To run this program, place it in a file called `reach.dl` and create a directory called `reach` containing the input fact files (EDBs).
+### Write an simple program
+
+Create a file named `reach.dl` with the following contents, this program computes the set of nodes reachable from the given sources.
+
+```datalog
+.in
+.decl Source(id: number)
+.input Source.csv
+
+.decl Arc(x: number, y: number)
+.input Arc.csv
+
+.printsize
+.decl Reach(id: number)
+
+.rule
+Reach(y) :- Source(y).
+Reach(y) :- Reach(x), Arc(x, y).
+```
+
+### Prepare Input Data
+Create a directory called `reach` and place the EDB files inside.
+For this example, you can use [livejournal](https://pages.cs.wisc.edu/~m0riarty/dataset/livejournal.zip).
+
+```bash
+mkdir -p reach
+cd reach
+curl -LO https://pages.cs.wisc.edu/~m0riarty/dataset/livejournal.zip
+unzip livejournal.zip
+cd ..
+```
+
+### Build and Run
+```bash
+cargo build --release
+target/release/executing -p reach.dl -f reach -w 64
+```
 
 ## Building
 
@@ -158,9 +195,9 @@ max_salary(dept, max(salary)) :- employee(emp_id, salary), works_in(emp_id, dept
 
 ###  Current Limitations
 
-- FlowLog currently supports `count`, `sum`, `min`, `max` aggregation operators. However, the aggregate field must be the **last argument** in the head IDB. All rules deriving the same IDB must conform to the same **aggregation type** (e.g. `count`, `sum`).
+- [Aggregation] FlowLog currently supports `count`, `sum`, `min`, `max` aggregation operators. However, the aggregate field must be the **last argument** in the head IDB. All rules deriving the same IDB must conform to the same **aggregation type** (e.g. `count`, `sum`).
 
-- (Compilation....) FlowLog currently compiles very slowly since it has heavy dependencies on DD (e.g. on r6525, it takes 16 minutes to compile)
+- [Compilation] FlowLog currently compiles very slowly due to heavy dependencies (e.g., DD/Timely). On r6525 node, a clean build can take ~16 minutes.
 
 ## Example Datalog Programs
 
