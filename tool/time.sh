@@ -34,7 +34,7 @@ setup_dataset() {
     local dataset_name="$1"
     local dataset_zip="./test/correctness_test/dataset/${dataset_name}.zip"
     local extract_path="${FACT_DIR}/${dataset_name}"
-    local dataset_url="https://pages.cs.wisc.edu/~m0riarty/dataset/${dataset_name}.zip"
+    local dataset_url="https://pages.cs.wisc.edu/~m0riarty/dataset/csv/${dataset_name}.zip"
 
     # Check if dataset is already extracted
     if [ -d "$extract_path" ]; then
