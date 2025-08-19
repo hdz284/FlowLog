@@ -9,6 +9,7 @@ FlowLog is an efficient, scalable and extensible Datalog engine built atop Diffe
 ## System Architecture
 
 FlowLog uses a modular architecture that collectively form a Datalog execution pipeline as follows (see paper Figure 1):
+<p align="center"> <img src="eclair.png" alt="system_architecture" width="700"/> </p>
 
 ```
 ├── parsing       # Parsing Datalog program
