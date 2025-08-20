@@ -82,10 +82,6 @@ target/release/executing -p reach.dl -f reach -w 64
 # Release build
 cargo build --release                                             # Batch mode (Present, default)
 cargo build --release --features isize-type --no-default-features # Incremental mode (isize)
-
-# Debug build
-cargo build                                                       # Batch mode (Present, default)
-cargo build --features isize-type --no-default-features           # Incremental mode (isize)
 ```
 
 ### Execution Modes
@@ -198,7 +194,7 @@ max_salary(dept, max(salary)) :- employee(emp_id, salary), works_in(emp_id, dept
 
 - [Aggregation] FlowLog currently supports `count`, `sum`, `min`, `max` aggregation operators. However, the aggregate field must be the **last argument** in the head IDB. All rules deriving the same IDB must conform to the same **aggregation type** (e.g. `count`, `sum`).
 
-- [Compilation] FlowLog currently compiles very slowly due to heavy dependencies (e.g., DD/Timely). On r6525 node, a clean build can take ~16 minutes.
+- [Compilation] FlowLog currently compiles very slowly due to heavy dependencies (e.g., DD/Timely). On r6525 node, a from-scratch release build can take ~16 minutes.
 
 ## Example Datalog Programs
 
