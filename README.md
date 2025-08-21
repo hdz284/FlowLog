@@ -67,6 +67,8 @@ mkdir -p reach
 cd reach
 curl -LO https://pages.cs.wisc.edu/~m0riarty/dataset/csv/livejournal.zip
 unzip livejournal.zip
+mv livejournal/* ./
+rmdir livejournal
 cd ..
 ```
 
