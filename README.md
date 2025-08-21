@@ -60,12 +60,12 @@ Reach(y) :- Reach(x), Arc(x, y).
 
 ### Prepare Input Data
 Create a directory called `reach` and place the EDB files inside.
-For this example, you can use [livejournal](https://pages.cs.wisc.edu/~m0riarty/dataset/livejournal.zip).
+For this example, you can use [livejournal](https://pages.cs.wisc.edu/~m0riarty/dataset/csv/livejournal.zip).
 
 ```bash
 mkdir -p reach
 cd reach
-curl -LO https://pages.cs.wisc.edu/~m0riarty/dataset/livejournal.zip
+curl -LO https://pages.cs.wisc.edu/~m0riarty/dataset/csv/livejournal.zip
 unzip livejournal.zip
 cd ..
 ```
@@ -168,7 +168,7 @@ RUST_LOG=debug target/release/executing -p examples/batik.dl -f batik -c results
 
 All datasets used in the paper evaluation are publicly available:
 
-**Paper Datasets**: https://pages.cs.wisc.edu/~m0riarty/dataset/
+**Paper Datasets**: https://pages.cs.wisc.edu/~m0riarty/dataset/csv/
 
 ### Datalog Syntax
 
