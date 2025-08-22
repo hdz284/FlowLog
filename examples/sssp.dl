@@ -2,7 +2,7 @@
 .decl arc(src: number, dest: number, weight: number) 
 .input Arc.csv
 .decl id(src: number)
-.input id.csv
+.input Id.csv
 
 .printsize 
 .decl sssp2(x: number, y: number)
