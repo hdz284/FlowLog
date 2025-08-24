@@ -1,3 +1,3 @@
-[submodule "Datalog-DB-benchmark"]
-	path = Datalog-DB-benchmark
-	url = https://github.com/HarukiMoriarty/Datalog-DB-benchmark
+[submodule "FlowLog-Reproduction"]
+	path = FlowLog-Reproduction
+	url = https://github.com/HarukiMoriarty/FlowLog-Reproduction
