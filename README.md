@@ -36,6 +36,10 @@ rustc --version
 
 # To install the environment:
 bash tool/env.sh
+
+# After installation, you may need to start a new terminal session
+# or run `source ~/.bashrc` (or `source ~/.zshrc` if using zsh)
+# so that environment variables and PATH updates take effect.
 ```
 
 ### Write an simple program
