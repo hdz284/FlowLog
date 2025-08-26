@@ -4,10 +4,10 @@
 //! for various operations in the FlowLog engine.
 
 /// Maximum arity for key-value in code generation
-pub const KV_MAX: usize = 6;
+pub const KV_MAX: usize = 4;
 
 /// Maximum arity for row in code generation  
-pub const ROW_MAX: usize = 8;
+pub const ROW_MAX: usize = 7;
 
 /// Maximum arity for product in code generation
 pub const PROD_MAX: usize = 2;

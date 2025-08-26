@@ -26,20 +26,23 @@ FlowLog uses a modular architecture that collectively form a Datalog execution p
 
 ### Environment Setup
 ```bash
-# Requirements:
-# - Rust 1.89+ (stable)
+# Automated setup (recommended):
+# The env.sh script automatically handles all requirements including:
+# - Rust = 1.89.0 (pinned version for reproducibility)
 # - differential-dataflow = 0.16.1
 # - timely = 0.22.0
+# - ...
 
-# To check your Rust version
-rustc --version
-
-# To install the environment:
+# Simply run:
 bash tool/env.sh
 
 # After installation, you may need to start a new terminal session
 # or run `source ~/.bashrc` (or `source ~/.zshrc` if using zsh)
 # so that environment variables and PATH updates take effect.
+
+# Manual verification (optional):
+# To check your Rust version after setup
+rustc --version  # Should show: rustc 1.89.0
 ```
 
 ### Write an simple program
@@ -196,7 +199,7 @@ count_paths(x, z, count(y)) :- edge(x, y), edge(y, z).
 max_salary(dept, max(salary)) :- employee(emp_id, salary), works_in(emp_id, dept).
 ```
 
-###  Current Limitations
+##  Current Limitations
 
 - [Aggregation] FlowLog currently supports `count`, `sum`, `min`, `max` aggregation operators. However, the aggregate field must be the **last argument** in the head IDB. All rules deriving the same IDB must conform to the same **aggregation type** (e.g. `count`, `sum`).
 
