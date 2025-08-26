@@ -226,7 +226,7 @@ You should see PASSED for each program if everything is correct. -->
 
 ## Reproducing Paper Figures
 
-This repository includes [Datalog-DB-benchmark](https://github.com/HarukiMoriarty/Datalog-DB-benchmark) as a git submodule. You can use this submodule to reproduce the experiment figures from the paper. Please initialize submodules after cloning:
+This repository includes [FlowLog-Reproduction](https://github.com/HarukiMoriarty/FlowLog-Reproduction) as a git submodule. You can use this submodule to reproduce the experiment figures from the paper. Please initialize submodules after cloning:
 
 ```bash
 git submodule update --init --recursive
