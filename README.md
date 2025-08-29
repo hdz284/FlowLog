@@ -29,8 +29,8 @@ FlowLog uses a modular architecture that collectively form a Datalog execution p
 # Automated setup (recommended):
 # The env.sh script automatically handles all requirements including:
 # - Rust = 1.89.0 (pinned version for reproducibility)
-# - differential-dataflow = 0.16.1
-# - timely = 0.22.0
+# - differential-dataflow = 0.16.2
+# - timely = 0.23.0
 # - ...
 
 # Simply run:
