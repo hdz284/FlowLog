@@ -199,11 +199,12 @@ count_paths(x, z, count(y)) :- edge(x, y), edge(y, z).
 max_salary(dept, max(salary)) :- employee(emp_id, salary), works_in(emp_id, dept).
 ```
 
-##  Current Limitations
+##  Current Limitations (Work In Progress)
 
 - [Aggregation] FlowLog currently supports `count`, `sum`, `min`, `max` aggregation operators. However, the aggregate field must be the **last argument** in the head IDB. All rules deriving the same IDB must conform to the same **aggregation type** (e.g. `count`, `sum`).
 
 - [Compilation] FlowLog currently compiles very slowly due to heavy dependencies (e.g., DD/Timely). On r6525 node, a from-scratch release build can take ~16 minutes.
+
 - [Arithmetic Head] Support for the Arithmetic Head feature is currently unstable and conflicts with the existing SIP optimization. We have therefore moved it to a separate temporary branch called `nemo_arithmetic`. You can check out this branch to run programs that require this feature (e.g., SSSP). We have confirmed it runs correctly on SSSP, but we do not guarantee correctness in general.
 
 
