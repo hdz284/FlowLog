@@ -13,8 +13,8 @@ members = [
 ]
 
 [workspace.dependencies]
-timely = "0.21.1"
-differential-dataflow = { git = "https://github.com/TimelyDataflow/differential-dataflow", branch = "master" }
+timely = "0.23.0"
+differential-dataflow = "0.16.2"
 clap = "4.5.40"
 itertools = "0.14.0"
 pest = "2.8.1"
