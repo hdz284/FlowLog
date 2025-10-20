@@ -2,9 +2,16 @@
 
 <p align="center"> <img src="flowlog.png" alt="flowlog_logo" width="250"/> </p>
 
-This repository contains the implementation for the paper **"FlowLog: Efficient and Extensible Datalog via Incrementality"**.
 
 FlowLog is an efficient, scalable and extensible Datalog engine built atop Differential Dataflow.
+
+## Paper
+
+This repository contains the implementation for the paper:
+
+**FlowLog: Efficient and Extensible Datalog via Incrementality**  
+*Hangdong Zhao, Zhenghong Yu, Srinag Rao, Simon Frisk, Zhiwei Fan, Paraschos Koutris*  
+VLDB 2026
 
 ## System Architecture
 
@@ -29,8 +36,8 @@ FlowLog uses a modular architecture that collectively form a Datalog execution p
 # Automated setup (recommended):
 # The env.sh script automatically handles all requirements including:
 # - Rust = 1.89.0 (pinned version for reproducibility)
-# - differential-dataflow = 0.16.2
-# - timely = 0.23.0
+# - differential-dataflow = 0.16.2 (paper version for reproducibility)
+# - timely = 0.23.0 (paper version for reproducibility)
 # - ...
 
 # Simply run:
@@ -44,6 +51,8 @@ bash tool/env.sh
 # To check your Rust version after setup
 rustc --version  # Should show: rustc 1.89.0
 ```
+
+> **Note on Versions**: For paper reproducibility, we use differential-dataflow 0.16.2 and timely 0.23.0 as reported in the VLDB paper. However, we are actively maintaining FlowLog and catching up with the most updated versions of these dependencies for improved performance.
 
 ### Write an simple program
 
