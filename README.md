@@ -1,22 +1,41 @@
-# FlowLog
+<p align="center">
+  <img src="flowlog.png" alt="FlowLog Logo" width="250"/>
+</p>
 
-<p align="center"> <img src="flowlog.png" alt="flowlog_logo" width="250"/> </p>
+<h1 align="center">FlowLog</h1>
 
+<p align="center">
+  <strong>An efficient, scalable, and extensible Datalog engine built atop Differential Dataflow</strong>
+</p>
 
-FlowLog is an efficient, scalable and extensible Datalog engine built atop Differential Dataflow.
+<p align="center">
+  <a href="https://arxiv.org/pdf/2511.00865">Paper</a> •
+  <a href="#quick-example">Quick Start</a> •
+  <a href="#datasets">Datasets</a> •
+  <a href="#reproducing-paper-figures">Reproduce Results</a>
+</p>
+
+---
 
 ## Paper
 
-This repository contains the implementation for the paper:
+This repo contains the implementation for the paper:
 
 **FlowLog: Efficient and Extensible Datalog via Incrementality**  
-*Hangdong Zhao, Zhenghong Yu, Srinag Rao, Simon Frisk, Zhiwei Fan, Paraschos Koutris*  
-VLDB 2026
+Hangdong Zhao, Zhenghong Yu, Srinag Rao, Simon Frisk, Zhiwei Fan, Paraschos Koutris  
+VLDB 2026 (Boston)
+
+[**Read the paper on arXiv**](https://arxiv.org/pdf/2511.00865)
+
+---
 
 ## System Architecture
 
-FlowLog uses a modular architecture that collectively form a Datalog execution pipeline as follows (see paper Figure 1):
-<p align="center"> <img src="eclair.png" alt="system_architecture" width="700"/> </p>
+FlowLog uses a modular architecture that collectively forms a Datalog execution pipeline as follows (see paper Figure 1):
+
+<p align="center">
+  <img src="architecture.png" alt="System Architecture" width="700"/>
+</p>
 
 ```
 ├── parsing       # Parsing Datalog program
@@ -29,7 +48,9 @@ FlowLog uses a modular architecture that collectively form a Datalog execution p
   └── macros        # Rust macros for code generate each differential operator
 ```
 
-## A Quick Example
+---
+
+## Quick Example
 
 ### Environment Setup
 ```bash
@@ -54,9 +75,9 @@ rustc --version  # Should show: rustc 1.89.0
 
 > **Note on Versions**: For paper reproducibility, we use differential-dataflow 0.16.2 and timely 0.23.0 as reported in the VLDB paper. However, we are actively maintaining FlowLog and catching up with the most updated versions of these dependencies for improved performance.
 
-### Write an simple program
+### Write a Simple Program
 
-Create a file named `reach.dl` with the following contents, this program computes the set of nodes reachable from the given sources.
+Create a file named `reach.dl` with the following contents. This program computes the set of nodes reachable from the given sources:
 
 ```datalog
 .in
@@ -75,8 +96,8 @@ Reach(y) :- Reach(x), Arc(x, y).
 ```
 
 ### Prepare Input Data
-Create a directory called `reach` and place the EDB files inside.
-For this example, you can use [livejournal](https://pages.cs.wisc.edu/~m0riarty/dataset/csv/livejournal.zip).
+
+Create a directory called `reach` and place the EDB files inside. For this example, you can use [livejournal](https://pages.cs.wisc.edu/~m0riarty/dataset/csv/livejournal.zip):
 
 ```bash
 mkdir -p reach
@@ -93,6 +114,8 @@ cd ..
 cargo build --release
 target/release/executing -p reach.dl -f reach -w 64
 ```
+
+---
 
 ## Building
 
@@ -117,6 +140,8 @@ FlowLog currently supports two execution modes for Datalog applications:
 | **Incremental Mode** | `cargo build --release --features isize-type --no-default-features` | Incremental Datalog execution |
 
 
+---
+
 ## Usage
 
 After (release) build, use the `executing` binary to run Datalog programs:
@@ -129,7 +154,7 @@ target/release/executing -p <program.dl> -f <facts_directory> -w <number_threads
 target/release/executing -p examples/reach.dl -f reach -w 8
 ```
 
-## Command Options
+### Command Options
 
 <table>
 <tr>
@@ -182,13 +207,15 @@ target/release/executing -p examples/batik.dl -f batik -d $'\t' -w 32 -O 3
 RUST_LOG=debug target/release/executing -p examples/batik.dl -f batik -c results -O 2
 ```
 
-###  Datasets
+### Datasets
 
 All datasets used in the paper evaluation are publicly available:
 
-**Paper Datasets**: https://pages.cs.wisc.edu/~m0riarty/dataset/csv/
+**Paper Datasets**: [https://pages.cs.wisc.edu/~m0riarty/dataset/csv/](https://pages.cs.wisc.edu/~m0riarty/dataset/csv/)
 
-### Datalog Syntax
+---
+
+## Datalog Syntax
 
 FlowLog supports standard Datalog with common extensions:
 
@@ -208,7 +235,9 @@ count_paths(x, z, count(y)) :- edge(x, y), edge(y, z).
 max_salary(dept, max(salary)) :- employee(emp_id, salary), works_in(emp_id, dept).
 ```
 
-##  Current Limitations (Work In Progress)
+---
+
+## Current Limitations (Work In Progress)
 
 - [Aggregation] FlowLog currently supports `count`, `sum`, `min`, `max` aggregation operators. However, the aggregate field must be the **last argument** in the head IDB. All rules deriving the same IDB must conform to the same **aggregation type** (e.g. `count`, `sum`).
 
@@ -217,24 +246,13 @@ max_salary(dept, max(salary)) :- employee(emp_id, salary), works_in(emp_id, dept
 - [Arithmetic Head] Support for the Arithmetic Head feature is currently unstable and conflicts with the existing SIP optimization. We have therefore moved it to a separate temporary branch called `nemo_arithmetic`. You can check out this branch to run programs that require this feature (e.g., SSSP). We have confirmed it runs correctly on SSSP, but we do not guarantee correctness in general.
 
 
+---
+
 ## Example Datalog Programs
 
-The `examples` directory contains several sample Datalog programs.
+The `examples/` directory contains several sample Datalog programs demonstrating various features and use cases.
 
-<!-- ## Testing
-
-To run all bundled correctness tests:
-
-```bash
-bash env_test.sh
-```
-This script will automatically:
-1. Download and extract the test dataset and programs
-2. Run each test program with its corresponding input
-3. Verify output files against expected results
-
-You should see PASSED for each program if everything is correct. -->
-
+---
 
 ## Reproducing Paper Figures
 
@@ -244,9 +262,10 @@ This repository includes [FlowLog-Reproduction](https://github.com/HarukiMoriart
 git submodule update --init --recursive
 ```
 
+
+---
+
 ## Contributing
 
-Contributions are welcome! Feel free to submit a PR.
-
-
+Contributions are welcome! Feel free to submit a pull request or open an issue.
 
