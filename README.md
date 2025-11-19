@@ -29,7 +29,7 @@ VLDB 2026 (Boston)
 
 ---
 
-## System Architecture
+## FlowLog Architecture
 
 FlowLog uses a modular architecture that collectively creates a Datalog execution pipeline as follows (also see Figure 1 of the paper):
 
@@ -117,7 +117,7 @@ target/release/executing -p reach.dl -f reach -w 64
 
 ---
 
-## Building
+## FlowLog Build
 
 ```bash
 # Release build
@@ -142,7 +142,7 @@ FlowLog currently supports two execution modes for Datalog applications:
 
 ---
 
-## Usage
+## FlowLog Run
 
 After (release) build, use the `executing` binary to run Datalog programs:
 
@@ -215,7 +215,7 @@ All datasets used in the paper evaluation are publicly available:
 
 ---
 
-## Datalog Syntax
+## FlowLog (Datalog) Syntax
 
 FlowLog supports standard Datalog with common extensions:
 
@@ -248,7 +248,7 @@ max_salary(dept, max(salary)) :- employee(emp_id, salary), works_in(emp_id, dept
 
 ---
 
-## Example Datalog Programs
+## FlowLog Example Benchmarks
 
 The `examples/` directory contains several sample Datalog programs demonstrating various features and use cases.
 
