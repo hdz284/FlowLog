@@ -31,11 +31,11 @@ VLDB 2026 (Boston)
 
 ## System Architecture
 
-FlowLog uses a modular architecture that collectively creates a Datalog execution pipeline as follows (see paper Figure 1):
+FlowLog uses a modular architecture that collectively creates a Datalog execution pipeline as follows (also see Figure 1 of the paper):
 
-<p align="center">
+<!-- <p align="center">
   <img src="architecture.png" alt="System Architecture" width="700"/>
-</p>
+</p> -->
 
 ```
 ├── parsing       # Parsing Datalog program
