@@ -2,7 +2,7 @@
   <img src="flowlog.png" alt="FlowLog Logo" width="250"/>
 </p>
 
-<h1 align="center">FlowLog</h1>
+<!-- <h1 align="center">FlowLog</h1> -->
 
 <p align="center">
   <strong>An efficient, scalable, and extensible Datalog engine built atop Differential Dataflow</strong>
@@ -17,7 +17,7 @@
 
 ---
 
-## Paper
+## FlowLog Paper
 
 This repo contains the implementation for the paper:
 
@@ -31,7 +31,7 @@ VLDB 2026 (Boston)
 
 ## System Architecture
 
-FlowLog uses a modular architecture that collectively forms a Datalog execution pipeline as follows (see paper Figure 1):
+FlowLog uses a modular architecture that collectively creates a Datalog execution pipeline as follows (see paper Figure 1):
 
 <p align="center">
   <img src="architecture.png" alt="System Architecture" width="700"/>
